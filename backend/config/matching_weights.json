@@ -1,0 +1,12 @@
+{
+  "_comment": "Weights for the SkillPulse matching engine. Skill match and availability are hard filters (not weighted) - a worker who lacks the skill or is unavailable is excluded entirely, not just penalized. The remaining four factors are combined using the weights below, which must sum to 1.0.",
+  "weights": {
+    "location": 0.30,
+    "experience": 0.20,
+    "wage": 0.20,
+    "reliability": 0.30
+  },
+  "max_radius_km": 10,
+  "wage_tolerance_ratio": 0.20,
+  "_wage_tolerance_note": "If a worker's expected wage exceeds the job's offered wage by more than this ratio (e.g. 0.20 = 20%), wage compatibility score is 0. Between 0% and this ratio, the score tapers linearly from 1.0 to 0.0."
+}
