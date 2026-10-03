@@ -135,7 +135,17 @@ applications: (jobId) =>
   notifications: () =>
     request("/notifications", {
       method: "GET",
-    }),  
+    }),
+
+  markNotificationRead: (notificationId) =>
+    request(`/notifications/${notificationId}/read`, {
+      method: "POST",
+    }),
+
+  markAllNotificationsRead: () =>
+    request("/notifications/read-all", {
+      method: "POST",
+    }),
 
   // Update worker skills
   setSkills: (skillNames) =>
@@ -173,6 +183,12 @@ applications: (jobId) =>
   // Recommended jobs for worker
   recommendedJobs: () =>
     request("/worker/jobs/recommended", {
+      method: "GET",
+    }),
+
+  // Worker's submitted applications
+  workerApplications: () =>
+    request("/worker/applications", {
       method: "GET",
     }),
 

@@ -173,262 +173,253 @@ function AuthModal({ mode, setMode, onSubmit, error }) {
 }
 
 function Dashboard({ user, onLogout }) {
-  const [stats, setStats] = useState({}); const [items, setItems] = useState([]); const [notifications, setNotifications] = useState([]); const [profile, setProfile] = useState(null); const [selectedJob, setSelectedJob] = useState(null); const [recommendations, setRecommendations] = useState([]); const [message, setMessage] = useState(""); const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState({}); const [items, setItems] = useState([]); const [applications, setApplications] = useState([]); const [notifications, setNotifications] = useState([]); const [profile, setProfile] = useState(null); const [selectedJob, setSelectedJob] = useState(null); const [recommendations, setRecommendations] = useState([]); const [message, setMessage] = useState(""); const [loading, setLoading] = useState(true);
   const worker = user.role === "worker";
-  const load = async () => { setLoading(true); try { const [s,p,n] = await Promise.all([worker ? api.workerStats() : api.contractorStats(), worker ? api.workerProfile() : api.contractorProfile(), api.notifications()]); setStats(s); setProfile(p.profile); setNotifications(n.notifications || []); if (worker) { const r=await api.recommendedJobs(); setItems(r.jobs || []); } else { const r=await api.contractorJobs(); setItems(r.jobs || []); } } catch(e) { setMessage(e.message); } finally { setLoading(false); } };
+  const load = async () => { setLoading(true); try { const [s,p,n] = await Promise.all([worker ? api.workerStats() : api.contractorStats(), worker ? api.workerProfile() : api.contractorProfile(), api.notifications()]); setStats(s); setProfile(p.profile); setNotifications(n.notifications || []); if (worker) { const [r, a] = await Promise.all([api.recommendedJobs(), api.workerApplications()]); setItems(r.jobs || []); setApplications(a.applications || []); } else { const r=await api.contractorJobs(); setItems(r.jobs || []); setApplications([]); } } catch(e) { setMessage(e.message); } finally { setLoading(false); } };
   useEffect(() => { load(); }, []);
   async function action(fn, success="Done") { try { await fn(); setMessage(success); await load(); } catch(e) { setMessage(e.message); } }
   async function getRecommendations(job) { setSelectedJob(job); try { const r=await api.recommendations(job.id); setRecommendations(r.workers || []); } catch(e) { setMessage(e.message); } }
-  return <div className="dashboard-shell"><header className="navbar"><div className="nav-container"><div className="brand"><div className="brand-icon">S</div><div><div className="brand-name">SkillPulse</div><div className="brand-tagline">WORK. MATCHED.</div></div></div><div className="dashboard-user"><span>{user.role}</span><strong>{user.email}</strong><button className="login-btn" onClick={onLogout}>Logout</button></div></div></header><main className="dashboard-main"><div className="dashboard-head"><div><div className="section-label">{worker ? "WORKER DASHBOARD" : "CONTRACTOR DASHBOARD"}</div><h1>{worker ? "Your work, matched." : "Build your next crew."}</h1><p>{worker ? "Live recommendations are calculated from your profile and availability." : "Post requirements and review ranked workers from your live database."}</p></div></div>{message && <div className="inline-error">{message}</div>}<div className="dashboard-stats">{Object.entries(stats).slice(0,5).map(([k,v]) => <div className="dashboard-stat" key={k}><small>{k.replaceAll("_", " ")}</small><strong>{typeof v === "number" && k.includes("score") ? `${Math.round(v*100)}%` : v}</strong></div>)}</div>{worker ? <WorkerPanel items={items} profile={profile} action={action} /> : <ContractorPanel items={items} selectedJob={selectedJob} recommendations={recommendations} onSelect={getRecommendations} action={action} />}</main><div className="dashboard-footer">SkillPulse · live application data · model-assisted matching</div></div>;
+  return <div className="dashboard-shell"><header className="navbar"><div className="nav-container"><div className="brand"><div className="brand-icon">S</div><div><div className="brand-name">SkillPulse</div><div className="brand-tagline">WORK. MATCHED.</div></div></div><div className="dashboard-user"><span>{user.role}</span><strong>{user.email}</strong><button className="login-btn" onClick={onLogout}>Logout</button></div></div></header><main className="dashboard-main"><div className="dashboard-head"><div><div className="section-label">{worker ? "WORKER DASHBOARD" : "CONTRACTOR DASHBOARD"}</div><h1>{worker ? "Your work, matched." : "Build your next crew."}</h1><p>{worker ? "Live recommendations are calculated from your profile and availability." : "Post requirements and review ranked workers from your live database."}</p></div></div>{message && <div className="inline-error">{message}</div>}<div className="dashboard-stats">{Object.entries(stats).slice(0,5).map(([k,v]) => <div className="dashboard-stat" key={k}><small>{k.replaceAll("_", " ")}</small><strong>{typeof v === "number" && k.includes("score") ? `${Math.round(v*100)}%` : v}</strong></div>)}</div>{worker ? <WorkerPanel items={items} profile={profile} applications={applications} notifications={notifications} action={action} /> : <ContractorPanel items={items} selectedJob={selectedJob} recommendations={recommendations} onSelect={getRecommendations} action={action} />}</main><div className="dashboard-footer">SkillPulse · live application data · model-assisted matching</div></div>;
 }
 
-function WorkerPanel({ items, profile, action }) {
-  const [skills, setSkills] = useState(
-    (profile?.skills || []).join(", ")
-  );
-
+function WorkerPanel({ items, profile, applications, notifications, action }) {
+  const [skills, setSkills] = useState((profile?.skills || []).join(", "));
   const [date, setDate] = useState("");
+  const [area, setArea] = useState(profile?.area_text || "Bengaluru");
+  const [latitude, setLatitude] = useState(profile?.latitude ?? "12.9716");
+  const [longitude, setLongitude] = useState(profile?.longitude ?? "77.5946");
+  const [fullName, setFullName] = useState(profile?.full_name || "");
+  const [phone, setPhone] = useState(profile?.phone || "");
+  const [experience, setExperience] = useState(profile?.experience_years ?? 0);
+  const [wage, setWage] = useState(profile?.expected_wage ?? 0);
 
-  const [area, setArea] = useState(
-    profile?.area_text || "Bengaluru"
-  );
+  const today = new Date().toISOString().slice(0, 10);
 
-  const [latitude, setLatitude] = useState(
-    profile?.latitude ?? "12.9716"
-  );
+  const saveProfile = () =>
+    action(
+      () => api.updateWorkerProfile({
+        full_name: fullName,
+        phone,
+        experience_years: Number(experience),
+        expected_wage: Number(wage),
+      }),
+      "Profile saved"
+    );
 
-  const [longitude, setLongitude] = useState(
-    profile?.longitude ?? "77.5946"
-  );
+  const saveSkills = () =>
+    action(
+      () => api.setSkills(skills.split(",").map((s) => s.trim()).filter(Boolean)),
+      "Skills updated"
+    );
+
+  const saveLocation = () =>
+    action(
+      () => api.updateWorkerProfile({
+        area_text: area,
+        latitude: Number(latitude),
+        longitude: Number(longitude),
+      }),
+      "Location saved"
+    );
+
+  const saveAvailability = () =>
+    action(
+      () => api.setAvailability(date, true),
+      "Availability saved — refreshing your matches"
+    );
 
   return (
     <div className="dashboard-grid">
-
-      {/* ================= RECOMMENDED JOBS ================= */}
-      <section className="dashboard-panel">
-
+      <section className="dashboard-panel worker-recommendations-panel">
         <div className="panel-head">
           <div>
-            <div className="section-label">
-              RECOMMENDED JOBS
-            </div>
-
+            <div className="section-label">AI-ASSISTED RECOMMENDATIONS</div>
             <h2>Jobs that fit you</h2>
           </div>
+          <span className="match-count">{items.length} match{items.length === 1 ? "" : "es"}</span>
         </div>
 
         {items.length === 0 ? (
-          <div className="empty-panel">
-            No currently eligible jobs. Add skills and availability
-            to unlock matching.
+          <div className="worker-empty-panel">
+            <div className="empty-icon">⌕</div>
+            <strong>No matching jobs yet</strong>
+            <p>Add at least one skill and mark yourself available for a job date to unlock personalized recommendations.</p>
           </div>
         ) : (
-          items.map((j) => (
-            <div className="live-row" key={j.id}>
-
-              <div>
-                <strong>{j.skill}</strong>
-
-                <small>
-                  {j.area_text || "Location set by contractor"} · ₹
-                  {Number(j.wage).toLocaleString("en-IN")}/day ·{" "}
-                  {formatDate(j.job_date)}
-                </small>
-
-                <span className="reason-line">
-                  {(j.reasons || [])
-                    .slice(0, 3)
-                    .join(" · ")}
-                </span>
-              </div>
-
-              <div className="row-actions">
-
-                <b>
-                  {Math.round(j.match_score)}%
-                </b>
-
-                <button
-                  className="dark-btn small-btn"
-                  onClick={() =>
-                    action(
-                      () => api.apply(j.id),
-                      "Application sent"
-                    )
-                  }
-                >
-                  Apply
-                </button>
-
-              </div>
-
-            </div>
-          ))
-        )}
-
-      </section>
-
-
-      {/* ================= WORKER PROFILE ================= */}
-      <section className="dashboard-panel">
-
-        <div className="section-label">
-          PROFILE
-        </div>
-
-        <h2>
-          {profile?.full_name || "Worker"}
-        </h2>
-
-
-        {/* Skills */}
-        <div className="profile-meta">
-          {(profile?.skills || []).map((s) => (
-            <span key={s}>{s}</span>
-          ))}
-        </div>
-
-
-        <p>
-          Experience:{" "}
-          {profile?.experience_years || 0} years
-        </p>
-
-        <p>
-          Expected wage: ₹
-          {Number(
-            profile?.expected_wage || 0
-          ).toLocaleString("en-IN")}
-          /day
-        </p>
-
-        <p>
-          Reliability:{" "}
-          {Math.round(
-            (profile?.reliability_score || 0) * 100
-          )}
-          %
-        </p>
-
-        <p>
-          Verification:{" "}
-          {profile?.verification_status}
-        </p>
-
-
-        {/* ================= SKILLS ================= */}
-        <div className="mini-form">
-
-          <input
-            value={skills}
-            onChange={(e) =>
-              setSkills(e.target.value)
-            }
-            placeholder="Skills, comma separated"
-          />
-
-          <button
-            className="secondary-btn small-btn"
-            onClick={() =>
-              action(
-                () =>
-                  api.setSkills(
-                    skills
-                      .split(",")
-                      .map((s) => s.trim())
-                      .filter(Boolean)
-                  ),
-                "Skills updated"
-              )
-            }
-          >
-            Update skills
-          </button>
-
-
-          {/* ================= AVAILABILITY ================= */}
-
-          <input
-            type="date"
-            value={date}
-            onChange={(e) =>
-              setDate(e.target.value)
-            }
-          />
-
-          <button
-            className="secondary-btn small-btn"
-            disabled={!date}
-            onClick={() =>
-              action(
-                () =>
-                  api.setAvailability(
-                    date,
-                    true
-                  ),
-                "Availability saved"
-              )
-            }
-          >
-            Mark available
-          </button>
-
-
-          {/* ================= LOCATION ================= */}
-
-          <div className="section-label">
-            LOCATION
+          <div className="worker-job-list">
+            {items.map((j) => (
+              <article className="worker-job-card" key={j.id}>
+                <div className="worker-job-main">
+                  <div className="worker-job-icon">{icons[j.skill] || "👷"}</div>
+                  <div className="worker-job-info">
+                    <div className="worker-job-title-row">
+                      <h3>{j.skill}</h3>
+                      <span className="match-badge">{Math.round(Number(j.match_score || 0))}% Match</span>
+                    </div>
+                    <p>{j.description || "Construction work requirement posted on SkillPulse."}</p>
+                    <div className="worker-job-meta">
+                      <span>⌖ {j.area_text || "Location provided"}</span>
+                      <span>₹{Number(j.wage || 0).toLocaleString("en-IN")}/day</span>
+                      <span>◷ {formatDate(j.job_date)}</span>
+                    </div>
+                    <div className="worker-reasons">
+                      {(j.reasons || []).slice(0, 3).map((reason, i) => <span key={i}>✓ {reason}</span>)}
+                    </div>
+                  </div>
+                </div>
+                <button className="dark-btn small-btn" onClick={() => action(() => api.apply(j.id), "Application sent")}>Apply →</button>
+              </article>
+            ))}
           </div>
-
-          <input
-            value={area}
-            onChange={(e) =>
-              setArea(e.target.value)
-            }
-            placeholder="Area / City"
-          />
-
-          <input
-            type="number"
-            step="any"
-            value={latitude}
-            onChange={(e) =>
-              setLatitude(e.target.value)
-            }
-            placeholder="Latitude"
-          />
-
-          <input
-            type="number"
-            step="any"
-            value={longitude}
-            onChange={(e) =>
-              setLongitude(e.target.value)
-            }
-            placeholder="Longitude"
-          />
-
-          <button
-            className="secondary-btn small-btn"
-            onClick={() =>
-              action(
-                () =>
-                  api.updateWorkerProfile({
-                    area_text: area,
-                    latitude: Number(latitude),
-                    longitude: Number(longitude),
-                  }),
-                "Location saved"
-              )
-            }
-          >
-            Save location
-          </button>
-
-        </div>
-
+        )}
       </section>
 
+      <section className="dashboard-panel worker-settings-panel">
+        <div className="section-label">PROFILE SETTINGS</div>
+        <h2>Keep your profile current.</h2>
+        <p className="panel-description">Better profile data gives the matching engine more information to rank suitable work.</p>
+
+        <div className="mini-form">
+          <div className="worker-form-grid">
+            <div><label>FULL NAME</label><input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Your name" /></div>
+            <div><label>PHONE</label><input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Phone number" /></div>
+            <div><label>EXPERIENCE (YEARS)</label><input type="number" min="0" step="0.5" value={experience} onChange={(e) => setExperience(e.target.value)} /></div>
+            <div><label>EXPECTED WAGE / DAY</label><input type="number" min="0" value={wage} onChange={(e) => setWage(e.target.value)} /></div>
+          </div>
+          <button className="dark-btn small-btn" onClick={saveProfile}>Save profile →</button>
+
+          <div className="settings-divider" />
+          <label>SKILLS</label>
+          <input value={skills} onChange={(e) => setSkills(e.target.value)} placeholder="Painter, Mason, Plumber..." />
+          <div className="profile-meta">
+            {skills.split(",").map((s) => s.trim()).filter(Boolean).map((s) => <span key={s}>{s}</span>)}
+          </div>
+          <button className="secondary-btn small-btn" onClick={saveSkills} disabled={!skills.trim()}>Update skills</button>
+
+          <div className="settings-divider" />
+          <div className="section-label">WORK AREA</div>
+          <input value={area} onChange={(e) => setArea(e.target.value)} placeholder="Area / City" />
+          <div className="form-grid">
+            <input type="number" step="any" value={latitude} onChange={(e) => setLatitude(e.target.value)} placeholder="Latitude" />
+            <input type="number" step="any" value={longitude} onChange={(e) => setLongitude(e.target.value)} placeholder="Longitude" />
+          </div>
+          <button className="secondary-btn small-btn" onClick={saveLocation}>Save location</button>
+
+          <div className="matching-note"><strong>✦ How matching works</strong><span>Skill fit, distance, availability and reliability are considered before recommendations are ranked.</span></div>
+        </div>
+
+        <div className="availability-box">
+          <div className="section-label">AVAILABILITY</div>
+          <h2>Tell us when you can work.</h2>
+          <p className="panel-description">Mark yourself available for a date so contractors can include you in matching.</p>
+          <div className="availability-row">
+            <div><label>AVAILABLE DATE</label><input type="date" min={today} value={date} onChange={(e) => setDate(e.target.value)} /></div>
+            <button className="primary-btn small-btn" disabled={!date} onClick={saveAvailability}>Save availability →</button>
+          </div>
+        </div>
+      </section>
+
+      <section className="dashboard-panel worker-applications-panel">
+        <div className="panel-head">
+          <div>
+            <div className="section-label">MY APPLICATIONS</div>
+            <h2>Track your work applications.</h2>
+          </div>
+          <span className="match-count">{applications.length} application{applications.length === 1 ? "" : "s"}</span>
+        </div>
+        {applications.length === 0 ? (
+          <div className="worker-empty-panel compact-empty">
+            <div className="empty-icon">⌕</div>
+            <strong>No applications yet</strong>
+            <p>When you apply for a recommended job, its status will appear here.</p>
+          </div>
+        ) : (
+          <div className="worker-application-list">
+            {applications.map((application) => {
+              const job = application.job || {};
+              const status = String(application.status || application.application_status || "PENDING").toUpperCase();
+              const statusClass = status.toLowerCase().replace(/[^a-z_]/g, "-");
+              return (
+                <article className="worker-application-card" key={application.id || application.application_id}>
+                  <div className="worker-application-main">
+                    <div className="worker-job-icon">{icons[job.skill] || "👷"}</div>
+                    <div>
+                      <div className="worker-job-title-row">
+                        <h3>{job.skill || "Construction job"}</h3>
+                        <span className={`application-status ${statusClass}`}>{status}</span>
+                      </div>
+                      <p>{job.description || "Construction work requirement posted on SkillPulse."}</p>
+                      <div className="worker-job-meta">
+                        <span>⌖ {job.area_text || "Location provided"}</span>
+                        <span>₹{Number(job.wage || 0).toLocaleString("en-IN")}/day</span>
+                        <span>◷ {formatDate(job.job_date)}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="application-footer">
+                    {application.match_score !== null && application.match_score !== undefined && <span>Match score: <strong>{Math.round(Number(application.match_score))}%</strong></span>}
+                    {application.applied_at && <span>Applied {formatDate(String(application.applied_at).slice(0, 10))}</span>}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
+      <section className="dashboard-panel worker-notifications-panel">
+        <div className="panel-head">
+          <div>
+            <div className="section-label">NOTIFICATIONS</div>
+            <h2>Stay on top of your work.</h2>
+          </div>
+          <span className="match-count">{notifications.filter((n) => !n.is_read).length} unread</span>
+        </div>
+
+        {notifications.length === 0 ? (
+          <div className="worker-empty-panel compact-empty">
+            <div className="empty-icon">◷</div>
+            <strong>No notifications yet</strong>
+            <p>Updates about applications and job decisions will appear here.</p>
+          </div>
+        ) : (
+          <>
+            <div className="notification-toolbar">
+              {notifications.some((n) => !n.is_read) && (
+                <button
+                  className="secondary-btn small-btn"
+                  onClick={() => action(() => api.markAllNotificationsRead(), "All notifications marked as read")}
+                >
+                  Mark all as read
+                </button>
+              )}
+            </div>
+            <div className="notification-list">
+              {notifications.map((notification) => (
+                <article className={`notification-card ${notification.is_read ? "read" : "unread"}`} key={notification.id}>
+                  <div className="notification-icon">{notification.notif_type === "SELECTED" ? "✓" : notification.notif_type === "REJECTED" ? "×" : "•"}</div>
+                  <div className="notification-content">
+                    <div className="notification-title-row">
+                      <strong>{notification.notif_type === "SELECTED" ? "Application selected" : notification.notif_type === "REJECTED" ? "Application update" : "SkillPulse update"}</strong>
+                      {!notification.is_read && <span className="unread-dot">NEW</span>}
+                    </div>
+                    <p>{notification.message}</p>
+                    <small>{notification.created_at ? new Date(notification.created_at).toLocaleString() : ""}</small>
+                  </div>
+                  {!notification.is_read && (
+                    <button
+                      className="text-action"
+                      onClick={() => action(() => api.markNotificationRead(notification.id), "Notification marked as read")}
+                    >
+                      Mark read
+                    </button>
+                  )}
+                </article>
+              ))}
+            </div>
+          </>
+        )}
+      </section>
     </div>
   );
 }
