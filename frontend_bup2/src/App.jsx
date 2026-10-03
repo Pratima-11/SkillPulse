@@ -229,7 +229,7 @@ function WorkerPanel({ items, profile, applications, notifications, action }) {
     );
 
   return (
-    <div className="dashboard-grid">
+    <div className="dashboard-grid contractor-dashboard-grid">
       <section className="dashboard-panel worker-recommendations-panel">
         <div className="panel-head">
           <div>
@@ -492,7 +492,7 @@ function ContractorPanel({
     <div className="dashboard-grid">
 
       {/* LEFT SIDE — JOBS */}
-      <section className="dashboard-panel">
+      <section className="dashboard-panel dashboard-panel">
         <div className="panel-head">
           <div>
             <div className="section-label">YOUR JOBS</div>
@@ -500,82 +500,161 @@ function ContractorPanel({
           </div>
         </div>
 
-        <div className="job-create">
-          <input
-            placeholder="Skill"
-            value={form.skill_name}
-            onChange={(e) => set("skill_name", e.target.value)}
-          />
+        <div className="contractor-create-card">
 
-          <input
-            type="date"
-            value={form.job_date}
-            onChange={(e) => set("job_date", e.target.value)}
-          />
+  <div className="contractor-create-header">
+    <div>
+      <div className="section-label">POST A REQUIREMENT</div>
+      <h3>Find the right worker</h3>
+      <p>
+        Tell us what you need for tomorrow and SkillPulse will help match
+        suitable workers.
+      </p>
+    </div>
 
-          <input
-            placeholder="Area"
-            value={form.area_text}
-            onChange={(e) => set("area_text", e.target.value)}
-          />
+    <div className="contractor-create-icon">＋</div>
+  </div>
 
-          <div className="form-grid">
-            <input
-              type="number"
-              min="1"
-              placeholder="Wage/day"
-              value={form.wage}
-              onChange={(e) => set("wage", e.target.value)}
-            />
+  <div className="contractor-form">
 
-            <input
-              type="number"
-              min="1"
-              placeholder="Workers"
-              value={form.workers_required}
-              onChange={(e) =>
-                set("workers_required", e.target.value)
-              }
-            />
-          </div>
+    <div className="contractor-field contractor-field-wide">
+      <label>SKILL REQUIRED</label>
+      <select
+        value={form.skill_name}
+        onChange={(e) => set("skill_name", e.target.value)}
+      >
+        <option value="Painter">Painter</option>
+        <option value="Mason">Mason</option>
+        <option value="Plumber">Plumber</option>
+        <option value="Electrician">Electrician</option>
+        <option value="Carpenter">Carpenter</option>
+        <option value="Helper">Helper</option>
+      </select>
+    </div>
 
-          <input
-            placeholder="Working hours"
-            value={form.working_hours}
-            onChange={(e) =>
-              set("working_hours", e.target.value)
-            }
-          />
+    <div className="contractor-field">
+      <label>JOB DATE</label>
+      <input
+        type="date"
+        value={form.job_date}
+        onChange={(e) => set("job_date", e.target.value)}
+      />
+    </div>
 
-          <input
-            placeholder="Minimum experience (years)"
-            value={form.min_experience}
-            onChange={(e) =>
-              set("min_experience", e.target.value)
-            }
-          />
+    <div className="contractor-field">
+      <label>WORKERS REQUIRED</label>
 
-          <button
-            className="primary-btn small-btn"
-            disabled={!form.job_date}
-            onClick={() =>
-              action(
-                () =>
-                  api.createJob({
-                    ...form,
-                    wage: Number(form.wage),
-                    workers_required: Number(form.workers_required),
-                    min_experience: Number(form.min_experience),
-                    latitude: Number(form.latitude),
-                    longitude: Number(form.longitude),
-                  }),
-                "Job posted"
-              )
-            }
-          >
-            Post requirement <span>→</span>
-          </button>
-        </div>
+      <div className="worker-count-control">
+        <button
+          type="button"
+          onClick={() =>
+            set(
+              "workers_required",
+              Math.max(1, Number(form.workers_required) - 1)
+            )
+          }
+        >
+          −
+        </button>
+
+        <span>{form.workers_required}</span>
+
+        <button
+          type="button"
+          onClick={() =>
+            set(
+              "workers_required",
+              Math.min(50, Number(form.workers_required) + 1)
+            )
+          }
+        >
+          +
+        </button>
+      </div>
+    </div>
+
+    <div className="contractor-field contractor-field-wide">
+      <label>WORK LOCATION</label>
+      <input
+        placeholder="Bengaluru area"
+        value={form.area_text}
+        onChange={(e) => set("area_text", e.target.value)}
+      />
+    </div>
+
+    <div className="contractor-field">
+      <label>DAILY WAGE</label>
+
+      <div className="input-prefix">
+        <span>₹</span>
+        <input
+          type="number"
+          min="1"
+          value={form.wage}
+          onChange={(e) => set("wage", e.target.value)}
+        />
+      </div>
+    </div>
+
+    <div className="contractor-field">
+      <label>MINIMUM EXPERIENCE</label>
+
+      <div className="input-suffix">
+        <input
+          type="number"
+          min="0"
+          value={form.min_experience}
+          onChange={(e) => set("min_experience", e.target.value)}
+        />
+        <span>years</span>
+      </div>
+    </div>
+
+    <div className="contractor-field contractor-field-wide">
+      <label>WORKING HOURS</label>
+      <input
+        value={form.working_hours}
+        onChange={(e) => set("working_hours", e.target.value)}
+        placeholder="9:00 AM - 5:00 PM"
+      />
+    </div>
+
+    <div className="contractor-field contractor-field-wide">
+      <label>JOB DESCRIPTION</label>
+
+      <textarea
+        rows="3"
+        value={form.description}
+        onChange={(e) => set("description", e.target.value)}
+        placeholder="Describe the work, site requirements or anything the worker should know..."
+      />
+    </div>
+
+  </div>
+
+  <button
+    className="contractor-post-btn"
+    disabled={!form.job_date}
+    onClick={() =>
+      action(
+        () =>
+          api.createJob({
+            ...form,
+            wage: Number(form.wage),
+            workers_required: Number(form.workers_required),
+            min_experience: Number(form.min_experience),
+            latitude: Number(form.latitude),
+            longitude: Number(form.longitude),
+          }),
+        "Job posted"
+      )
+    }
+  >
+    Post requirement
+    <span>→</span>
+  </button>
+
+</div>
 
         {items.length === 0 ? (
           <div className="empty-panel">
@@ -583,54 +662,103 @@ function ContractorPanel({
           </div>
         ) : (
           items.map((j) => (
-            <div className="live-row" key={j.id}>
-              <div>
-                <strong>{j.skill}</strong>
+            <div className="contractor-job-card" key={j.id}>
 
-                <small>
-                  {j.area_text || "Location"} · ₹
-                  {Number(j.wage).toLocaleString("en-IN")}
-                  /day · {formatDate(j.job_date)}
-                </small>
+  <div className="contractor-job-card-main">
 
-                <span className="reason-line">
-                  Status: {j.status}
-                </span>
-              </div>
+    <div className="contractor-job-icon">
+      {icons[j.skill] || "👷"}
+    </div>
 
-              <div className="row-actions">
-                <button
-                  className="dark-btn small-btn"
-                  onClick={() => onSelect(j)}
-                >
-                  Find workers
-                </button>
+    <div className="contractor-job-info">
 
-                {j.status === "WORKER_SELECTED" && (
-                  <button
-                    className="secondary-btn small-btn"
-                    onClick={() =>
-                      action(
-                        () =>
-                          api.updateJobStatus(
-                            j.id,
-                            "CONFIRMED"
-                          ),
-                        "Job confirmed"
-                      )
-                    }
-                  >
-                    Confirm
-                  </button>
-                )}
-              </div>
-            </div>
+      <div className="contractor-job-title">
+        <h3>{j.skill}</h3>
+
+        <span
+          className={`contractor-status ${String(
+            j.status || "MATCHING"
+          ).toLowerCase()}`}
+        >
+          {String(j.status || "MATCHING").replaceAll("_", " ")}
+        </span>
+      </div>
+
+      <div className="contractor-job-details">
+
+        <span>
+          📍 {j.area_text || "Location unavailable"}
+        </span>
+
+        <span>
+          ₹{Number(j.wage || 0).toLocaleString("en-IN")}/day
+        </span>
+
+        <span>
+          📅 {formatDate(j.job_date)}
+        </span>
+
+        <span>
+          👷 {j.workers_required || 1} worker
+          {Number(j.workers_required || 1) !== 1 ? "s" : ""}
+        </span>
+
+      </div>
+
+    </div>
+
+  </div>
+
+  <div className="contractor-job-actions">
+
+  {j.status === "MATCHING" && (
+    <button
+      className="dark-btn small-btn"
+      onClick={() => onSelect(j)}
+    >
+      Find workers →
+    </button>
+  )}
+
+  {j.status === "WORKER_SELECTED" && (
+    <button
+      className="contractor-confirm-btn"
+      onClick={() =>
+        action(
+          () =>
+            api.updateJobStatus(
+              j.id,
+              "CONFIRMED"
+            ),
+          "Job confirmed"
+        )
+      }
+    >
+      Confirm →
+    </button>
+  )}
+
+  {j.status === "CONFIRMED" && (
+    <span className="contractor-complete-badge">
+      ✓ Confirmed
+    </span>
+  )}
+
+  {j.status === "COMPLETED" && (
+    <span className="contractor-complete-badge">
+      ✓ Completed
+    </span>
+  )}
+
+</div>
+
+</div>
           ))
         )}
       </section>
 
       {/* RIGHT SIDE — MATCHING + APPLICATIONS */}
-      <section className="dashboard-panel">
+      <section className="dashboard-panel contractor-match-panel">
 
         {/* MATCH ENGINE */}
         <div className="section-label">
@@ -649,29 +777,166 @@ function ContractorPanel({
           </div>
         )}
 
-        {recommendations.map((w) => (
-          <div className="live-row" key={w.id}>
+        {recommendations.map((w, index) => {
+          const score = Number(w.match_score || 0);
+
+const rankLabel =
+  score >= 90
+    ? "Top Match"
+    : score >= 80
+    ? "Strong Match"
+    : score >= 70
+    ? "Good Match"
+    : "Match";
+
+const rankIcon =
+  index === 0
+    ? "🥇"
+    : index === 1
+    ? "🥈"
+    : index === 2
+    ? "🥉"
+    : "•";
+  const breakdown = w.breakdown || {};
+
+  const percentage = (value) =>
+    Math.round(Number(value || 0) * 100);
+
+  return (
+    <div className="live-row match-worker-card" key={w.id}>
+
+      <div className="match-worker-main">
+
+        <div className="match-worker-header">
+
+          <div className="worker-rank-badge">
+  <span>{rankIcon}</span>
+  {rankLabel}
+</div>
+          <div>
+            <strong>{w.full_name}</strong>
+
+            <small>
+              {(w.skills || []).join(", ") || "Skill not listed"} ·{" "}
+              {w.experience_years || 0} yrs ·{" "}
+              {w.area_text || "Location unavailable"}
+            </small>
+          </div>
+
+          <div className="match-score-circle">
+            <b>{Math.round(Number(w.match_score || 0))}%</b>
+            <span>MATCH</span>
+          </div>
+        </div>
+
+        <div className="match-distance">
+          📍 {breakdown.distance_km ?? "—"} km away
+        </div>
+
+        <div className="match-breakdown">
+
+          <div className="match-breakdown-title">
+            MATCH BREAKDOWN
+          </div>
+
+          <div className="match-factor">
             <div>
-              <strong>{w.full_name}</strong>
-
-              <small>
-                {(w.skills || []).join(", ")} ·{" "}
-                {w.experience_years} yrs ·{" "}
-                {w.area_text || "Location unavailable"}
-              </small>
-
-              <span className="reason-line">
-                {(w.reasons || [])
-                  .slice(0, 4)
-                  .join(" · ")}
-              </span>
+              <span>Location</span>
+              <strong>
+                {percentage(breakdown.location_score)}%
+              </strong>
             </div>
 
-            <div className="row-actions">
-              <b>{Math.round(w.match_score)}%</b>
+            <div className="match-progress">
+              <span
+                style={{
+                  width: `${percentage(breakdown.location_score)}%`,
+                }}
+              />
             </div>
           </div>
-        ))}
+
+          <div className="match-factor">
+            <div>
+              <span>Experience</span>
+              <strong>
+                {percentage(breakdown.experience_score)}%
+              </strong>
+            </div>
+
+            <div className="match-progress">
+              <span
+                style={{
+                  width: `${percentage(breakdown.experience_score)}%`,
+                }}
+              />
+            </div>
+          </div>
+
+          <div className="match-factor">
+            <div>
+              <span>Wage</span>
+              <strong>
+                {percentage(breakdown.wage_score)}%
+              </strong>
+            </div>
+
+            <div className="match-progress">
+              <span
+                style={{
+                  width: `${percentage(breakdown.wage_score)}%`,
+                }}
+              />
+            </div>
+          </div>
+
+          <div className="match-factor">
+            <div>
+              <span>Reliability</span>
+              <strong>
+                {percentage(breakdown.reliability_score)}%
+              </strong>
+            </div>
+
+            <div className="match-progress">
+              <span
+                style={{
+                  width: `${percentage(breakdown.reliability_score)}%`,
+                }}
+              />
+            </div>
+          </div>
+
+        </div>
+
+        <div className="worker-match-reasons">
+          {(w.reasons || []).slice(0, 4).map((reason, i) => (
+            <span key={i}>✓ {reason}</span>
+          ))}
+        </div>
+
+      </div>
+
+      <div className="row-actions">
+        <button
+          className="dark-btn small-btn"
+          onClick={() =>
+            action(
+              () => api.post(
+                `/contractor/applications/worker/${w.id}`,
+                { job_id: selectedJob.id }
+              ),
+              "Worker request sent"
+            )
+          }
+        >
+          Select →
+        </button>
+      </div>
+
+    </div>
+  );
+})}
 
         {/* APPLICATIONS */}
         {selectedJob && (
@@ -701,46 +966,64 @@ function ContractorPanel({
             ) : (
               applications.map((application) => (
                 <div
-                  className="live-row"
+                  className="contractor-application-card"
                   key={application.application_id}
                 >
-                  <div>
-                    <strong>
-                      {application.full_name}
-                    </strong>
+                  <div className="contractor-application-main">
 
-                    <small>
-                      {(application.skills || []).join(", ")}
-                      {" · "}
-                      {application.experience_years || 0} yrs
-                      {" · "}
-                      {application.area_text ||
-                        "Location unavailable"}
-                    </small>
+                    <div className="contractor-application-avatar">
+                      👷
+                    </div>
 
-                    <span className="reason-line">
-                      Status:{" "}
-                      {application.application_status}
-                    </span>
+                    <div className="contractor-application-info">
 
-                    {application.match_score !== null &&
-                      application.match_score !== undefined && (
-                        <span className="reason-line">
-                          Match score:{" "}
-                          {Math.round(
-                            application.match_score
-                          )}
-                          %
+                      <div className="contractor-application-title">
+                        <h3>{application.full_name}</h3>
+
+                        <span
+                          className={`contractor-application-status ${String(
+                            application.application_status || "PENDING"
+                          ).toLowerCase()}`}
+                        >
+                          {application.application_status || "PENDING"}
                         </span>
-                      )}
+                      </div>
+
+                      <div className="contractor-application-meta">
+                        <span>
+                          🛠️ {(application.skills || []).join(", ") ||
+                            "Skills not listed"}
+                        </span>
+
+                        <span>
+                          🎓 {application.experience_years || 0} yrs
+                        </span>
+
+                        <span>
+                          📍 {application.area_text ||
+                            "Location unavailable"}
+                        </span>
+                      </div>
+
+                      {application.match_score !== null &&
+                        application.match_score !== undefined && (
+                          <div className="contractor-application-match">
+                            Match score:
+                            <strong>
+                              {Math.round(Number(application.match_score))}%
+                            </strong>
+                          </div>
+                        )}
+
+                    </div>
                   </div>
 
-                  <div className="row-actions">
-                    {application.application_status ===
-                      "PENDING" && (
+                  <div className="contractor-application-actions">
+
+                    {application.application_status === "PENDING" && (
                       <>
                         <button
-                          className="dark-btn small-btn"
+                          className="contractor-select-btn"
                           onClick={() =>
                             handleApplicationAction(
                               application.application_id,
@@ -753,7 +1036,7 @@ function ContractorPanel({
                         </button>
 
                         <button
-                          className="secondary-btn small-btn"
+                          className="contractor-reject-btn"
                           onClick={() =>
                             handleApplicationAction(
                               application.application_id,
@@ -767,15 +1050,18 @@ function ContractorPanel({
                       </>
                     )}
 
-                    {application.application_status ===
-                      "SELECTED" && (
-                      <b>SELECTED</b>
+                    {application.application_status === "SELECTED" && (
+                      <span className="contractor-selected-badge">
+                        ✓ Selected
+                      </span>
                     )}
 
-                    {application.application_status ===
-                      "REJECTED" && (
-                      <b>REJECTED</b>
+                    {application.application_status === "REJECTED" && (
+                      <span className="contractor-rejected-badge">
+                        Rejected
+                      </span>
                     )}
+
                   </div>
                 </div>
               ))
