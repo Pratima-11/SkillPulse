@@ -143,6 +143,46 @@ def list_my_jobs():
     jobs = query.order_by(Job.created_at.desc()).all()
     return jsonify({"jobs": [j.to_dict() for j in jobs]}), 200
 
+@contractor_bp.route("/jobs/<int:job_id>/applications", methods=["GET"])
+@role_required("contractor")
+def job_applications(job_id):
+    try:
+        profile = _get_current_contractor_profile()
+    except ValidationError as e:
+        return jsonify({"error": str(e)}), 404
+
+    job = Job.query.filter_by(
+        id=job_id,
+        contractor_id=profile.id
+    ).first()
+
+    if not job:
+        return jsonify({"error": "Job not found or does not belong to you."}), 404
+
+    applications = JobApplication.query.filter_by(
+        job_id=job.id
+    ).order_by(JobApplication.applied_at.desc()).all()
+
+    result = []
+
+    for application in applications:
+        worker = application.worker.to_dict()
+
+        worker["application_id"] = application.id
+        worker["application_status"] = application.status
+        worker["match_score"] = application.match_score
+        worker["score_breakdown"] = application.score_breakdown
+        worker["applied_at"] = (
+            application.applied_at.isoformat()
+            if application.applied_at
+            else None
+        )
+
+        result.append(worker)
+
+    return jsonify({
+        "applications": result
+    }), 200
 
 @contractor_bp.route("/jobs/<int:job_id>/recommended-workers", methods=["GET"])
 @role_required("contractor")

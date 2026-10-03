@@ -1,6 +1,7 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import "./App.css";
-import { api } from "./api";
+import { api, healthCheck } from "./services/api";
+
 
 const fallbackJobs = [
   { id: "demo-1", icon: "🎨", skill: "Painter", description: "Interior wall painting for residential property", area_text: "Kumaraswamy Layout, Bengaluru", wage: 800, working_hours: "9:00 AM – 5:00 PM", job_date: "Tomorrow" },
@@ -9,7 +10,7 @@ const fallbackJobs = [
 ];
 
 const icons = { Painter: "🎨", Mason: "🧱", Plumber: "🔧", Electrician: "⚡", Carpenter: "🪚", Helper: "👷" };
-const emptyStats = { verified_workers: 0, contractors: 0, jobs_completed: 0, average_rating: null, open_jobs: 0 };
+const emptyStats = { verified_workers: 0, contractors: 0, jobs_completed: 0, average_rating: 0, open_jobs: 0 };
 
 function formatDate(value) {
   if (!value || value === "Tomorrow") return value || "";
@@ -25,6 +26,29 @@ function App() {
   const [authMode, setAuthMode] = useState(null);
   const [user, setUser] = useState(null);
   const [error, setError] = useState("");
+    const [backendStatus, setBackendStatus] = useState("checking");
+
+
+useEffect(() => {
+  api.publicStats()
+    .then((data) => {
+      setStats(data);
+    })
+    .catch((err) => {
+      console.error("Failed to load homepage statistics:", err);
+    });
+}, []);
+
+
+  useEffect(() => {
+    healthCheck()
+      .then(() => {
+        setBackendStatus("connected");
+      })
+      .catch(() => {
+        setBackendStatus("disconnected");
+      });
+  }, []);
 
   const scrollTo = (id) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
 
@@ -79,7 +103,29 @@ function App() {
 
         <section className="search-section"><form className="search-box" onSubmit={runSearch}><div className="search-field"><span className="field-icon">⌕</span><div><label>WHAT DO YOU NEED?</label><input value={search.skill} onChange={e => setSearch({ ...search, skill: e.target.value })} placeholder="Painter, Mason, Plumber..." /></div></div><div className="search-divider"></div><div className="search-field"><span className="field-icon">⌖</span><div><label>LOCATION</label><input value={search.area} onChange={e => setSearch({ ...search, area: e.target.value })} placeholder="Bengaluru area" /></div></div><div className="search-divider"></div><div className="search-field"><span className="field-icon">◷</span><div><label>WHEN?</label><strong>Upcoming jobs</strong></div></div><button className="search-btn">Search <span>→</span></button></form></section>
 
-        <section className="stats-section"><div className="stats-container"><div className="stat"><strong>{stats.verified_workers}</strong><span>Verified Workers</span></div><div className="stat"><strong>{stats.contractors}</strong><span>Contractors</span></div><div className="stat"><strong>{stats.jobs_completed}</strong><span>Jobs Completed</span></div><div className="stat"><strong>{stats.average_rating ?? "—"}</strong><span>Average Rating</span></div></div></section>
+       <section className="stats-section">
+  <div className="stats-container">
+    <div className="stat">
+      <strong>{stats.verified_workers}</strong>
+      <span>Verified Workers</span>
+    </div>
+
+    <div className="stat">
+      <strong>{stats.active_contractors}</strong>
+      <span>Contractors</span>
+    </div>
+
+    <div className="stat">
+      <strong>{stats.completed_jobs}</strong>
+      <span>Jobs Completed</span>
+    </div>
+
+    <div className="stat">
+      <strong>{stats.average_rating ?? "—"}</strong>
+      <span>Average Rating</span>
+    </div>
+  </div>
+</section>
 
         {error && <div className="inline-error">{error}</div>}
         <section className="jobs-section" id="jobs"><div className="section-container"><div className="section-heading-row"><div><div className="section-label">OPPORTUNITIES</div><h2>Jobs available <span>soon.</span></h2></div><button className="text-link" onClick={() => setAuthMode("login")}>Sign in to apply <span>→</span></button></div><div className="jobs-grid">
@@ -98,6 +144,25 @@ function App() {
       {authMode && <AuthModal mode={authMode} setMode={setAuthMode} onSubmit={handleAuth} error={error} />}
     </div>
   );
+
+<div
+  style={{
+    position: "fixed",
+    bottom: "15px",
+    right: "15px",
+    zIndex: 9999,
+    padding: "8px 14px",
+    borderRadius: "20px",
+    background:
+      backendStatus === "connected" ? "#16a34a" : "#dc2626",
+    color: "white",
+    fontSize: "12px",
+    fontWeight: "600",
+  }}
+>
+  Backend: {backendStatus}
+</div>
+
 }
 
 function AuthModal({ mode, setMode, onSubmit, error }) {
@@ -117,8 +182,618 @@ function Dashboard({ user, onLogout }) {
   return <div className="dashboard-shell"><header className="navbar"><div className="nav-container"><div className="brand"><div className="brand-icon">S</div><div><div className="brand-name">SkillPulse</div><div className="brand-tagline">WORK. MATCHED.</div></div></div><div className="dashboard-user"><span>{user.role}</span><strong>{user.email}</strong><button className="login-btn" onClick={onLogout}>Logout</button></div></div></header><main className="dashboard-main"><div className="dashboard-head"><div><div className="section-label">{worker ? "WORKER DASHBOARD" : "CONTRACTOR DASHBOARD"}</div><h1>{worker ? "Your work, matched." : "Build your next crew."}</h1><p>{worker ? "Live recommendations are calculated from your profile and availability." : "Post requirements and review ranked workers from your live database."}</p></div></div>{message && <div className="inline-error">{message}</div>}<div className="dashboard-stats">{Object.entries(stats).slice(0,5).map(([k,v]) => <div className="dashboard-stat" key={k}><small>{k.replaceAll("_", " ")}</small><strong>{typeof v === "number" && k.includes("score") ? `${Math.round(v*100)}%` : v}</strong></div>)}</div>{worker ? <WorkerPanel items={items} profile={profile} action={action} /> : <ContractorPanel items={items} selectedJob={selectedJob} recommendations={recommendations} onSelect={getRecommendations} action={action} />}</main><div className="dashboard-footer">SkillPulse · live application data · model-assisted matching</div></div>;
 }
 
-function WorkerPanel({ items, profile, action }) { const [skills,setSkills]=useState((profile?.skills||[]).join(", ")); const [date,setDate]=useState(""); return <div className="dashboard-grid"><section className="dashboard-panel"><div className="panel-head"><div><div className="section-label">RECOMMENDED JOBS</div><h2>Jobs that fit you</h2></div></div>{items.length===0?<div className="empty-panel">No currently eligible jobs. Add skills and availability to unlock matching.</div>:items.map(j=><div className="live-row" key={j.id}><div><strong>{j.skill}</strong><small>{j.area_text || "Location set by contractor"} · ₹{Number(j.wage).toLocaleString("en-IN")}/day · {formatDate(j.job_date)}</small><span className="reason-line">{(j.reasons || []).slice(0,3).join(" · ")}</span></div><div className="row-actions"><b>{Math.round(j.match_score)}%</b><button className="dark-btn small-btn" onClick={()=>action(()=>api.apply(j.id),"Application sent")}>Apply</button></div></div>)}</section><section className="dashboard-panel"><div className="section-label">PROFILE</div><h2>{profile?.full_name || "Worker"}</h2><div className="profile-meta">{(profile?.skills || []).map(s=><span key={s}>{s}</span>)}</div><p>Experience: {profile?.experience_years || 0} years</p><p>Expected wage: ₹{Number(profile?.expected_wage || 0).toLocaleString("en-IN")}/day</p><p>Reliability: {Math.round((profile?.reliability_score || 0)*100)}%</p><p>Verification: {profile?.verification_status}</p><div className="mini-form"><input value={skills} onChange={e=>setSkills(e.target.value)} placeholder="Skills, comma separated"/><button className="secondary-btn small-btn" onClick={()=>action(()=>api.setSkills(skills.split(",").map(s=>s.trim()).filter(Boolean)),"Skills updated")}>Update skills</button><input type="date" value={date} onChange={e=>setDate(e.target.value)}/><button className="secondary-btn small-btn" disabled={!date} onClick={()=>action(()=>api.availability({available_date:date,is_available:true}),"Availability saved")}>Mark available</button></div></section></div>; }
+function WorkerPanel({ items, profile, action }) {
+  const [skills, setSkills] = useState(
+    (profile?.skills || []).join(", ")
+  );
 
-function ContractorPanel({ items, selectedJob, recommendations, onSelect, action }) { const [form,setForm]=useState({skill_name:"Painter",job_date:"",latitude:"12.9716",longitude:"77.5946",area_text:"Bengaluru",wage:"800",working_hours:"9:00 AM - 5:00 PM",workers_required:1,min_experience:0,description:""}); const set=(k,v)=>setForm({...form,[k]:v}); return <div className="dashboard-grid"><section className="dashboard-panel"><div className="panel-head"><div><div className="section-label">YOUR JOBS</div><h2>Requirements</h2></div></div><div className="job-create"><input placeholder="Skill" value={form.skill_name} onChange={e=>set("skill_name",e.target.value)}/><input type="date" value={form.job_date} onChange={e=>set("job_date",e.target.value)}/><input placeholder="Area" value={form.area_text} onChange={e=>set("area_text",e.target.value)}/><div className="form-grid"><input type="number" min="1" placeholder="Wage/day" value={form.wage} onChange={e=>set("wage",e.target.value)}/><input type="number" min="1" placeholder="Workers" value={form.workers_required} onChange={e=>set("workers_required",e.target.value)}/></div><input placeholder="Working hours" value={form.working_hours} onChange={e=>set("working_hours",e.target.value)}/><input placeholder="Minimum experience (years)" value={form.min_experience} onChange={e=>set("min_experience",e.target.value)}/><button className="primary-btn small-btn" disabled={!form.job_date} onClick={()=>action(()=>api.createJob({...form,wage:Number(form.wage),workers_required:Number(form.workers_required),min_experience:Number(form.min_experience),latitude:Number(form.latitude),longitude:Number(form.longitude)}),"Job posted")}>Post requirement <span>→</span></button></div>{items.length===0?<div className="empty-panel">No jobs yet. Use the API or add the job-posting form next.</div>:items.map(j=><div className="live-row" key={j.id}><div><strong>{j.skill}</strong><small>{j.area_text || "Location"} · ₹{Number(j.wage).toLocaleString("en-IN")}/day · {formatDate(j.job_date)}</small><span className="reason-line">Status: {j.status}</span></div><div className="row-actions"><button className="dark-btn small-btn" onClick={()=>onSelect(j)}>Find workers</button>{j.status==="WORKER_SELECTED" && <button className="secondary-btn small-btn" onClick={()=>action(()=>api.updateJobStatus(j.id,"CONFIRMED"),"Job confirmed")}>Confirm</button>}</div></div>)}</section><section className="dashboard-panel"><div className="section-label">MATCH ENGINE</div><h2>{selectedJob ? `Ranked workers for ${selectedJob.skill}` : "Select a job"}</h2>{selectedJob && recommendations.length===0 && <div className="empty-panel">No eligible workers matched the hard filters.</div>}{recommendations.map(w=><div className="live-row" key={w.id}><div><strong>{w.full_name}</strong><small>{(w.skills||[]).join(", ")} · {w.experience_years} yrs · {w.area_text || "Location unavailable"}</small><span className="reason-line">{(w.reasons||[]).slice(0,4).join(" · ")}</span></div><div className="row-actions"><b>{Math.round(w.match_score)}%</b></div></div>)}</section></div>; }
+  const [date, setDate] = useState("");
+
+  const [area, setArea] = useState(
+    profile?.area_text || "Bengaluru"
+  );
+
+  const [latitude, setLatitude] = useState(
+    profile?.latitude ?? "12.9716"
+  );
+
+  const [longitude, setLongitude] = useState(
+    profile?.longitude ?? "77.5946"
+  );
+
+  return (
+    <div className="dashboard-grid">
+
+      {/* ================= RECOMMENDED JOBS ================= */}
+      <section className="dashboard-panel">
+
+        <div className="panel-head">
+          <div>
+            <div className="section-label">
+              RECOMMENDED JOBS
+            </div>
+
+            <h2>Jobs that fit you</h2>
+          </div>
+        </div>
+
+        {items.length === 0 ? (
+          <div className="empty-panel">
+            No currently eligible jobs. Add skills and availability
+            to unlock matching.
+          </div>
+        ) : (
+          items.map((j) => (
+            <div className="live-row" key={j.id}>
+
+              <div>
+                <strong>{j.skill}</strong>
+
+                <small>
+                  {j.area_text || "Location set by contractor"} · ₹
+                  {Number(j.wage).toLocaleString("en-IN")}/day ·{" "}
+                  {formatDate(j.job_date)}
+                </small>
+
+                <span className="reason-line">
+                  {(j.reasons || [])
+                    .slice(0, 3)
+                    .join(" · ")}
+                </span>
+              </div>
+
+              <div className="row-actions">
+
+                <b>
+                  {Math.round(j.match_score)}%
+                </b>
+
+                <button
+                  className="dark-btn small-btn"
+                  onClick={() =>
+                    action(
+                      () => api.apply(j.id),
+                      "Application sent"
+                    )
+                  }
+                >
+                  Apply
+                </button>
+
+              </div>
+
+            </div>
+          ))
+        )}
+
+      </section>
+
+
+      {/* ================= WORKER PROFILE ================= */}
+      <section className="dashboard-panel">
+
+        <div className="section-label">
+          PROFILE
+        </div>
+
+        <h2>
+          {profile?.full_name || "Worker"}
+        </h2>
+
+
+        {/* Skills */}
+        <div className="profile-meta">
+          {(profile?.skills || []).map((s) => (
+            <span key={s}>{s}</span>
+          ))}
+        </div>
+
+
+        <p>
+          Experience:{" "}
+          {profile?.experience_years || 0} years
+        </p>
+
+        <p>
+          Expected wage: ₹
+          {Number(
+            profile?.expected_wage || 0
+          ).toLocaleString("en-IN")}
+          /day
+        </p>
+
+        <p>
+          Reliability:{" "}
+          {Math.round(
+            (profile?.reliability_score || 0) * 100
+          )}
+          %
+        </p>
+
+        <p>
+          Verification:{" "}
+          {profile?.verification_status}
+        </p>
+
+
+        {/* ================= SKILLS ================= */}
+        <div className="mini-form">
+
+          <input
+            value={skills}
+            onChange={(e) =>
+              setSkills(e.target.value)
+            }
+            placeholder="Skills, comma separated"
+          />
+
+          <button
+            className="secondary-btn small-btn"
+            onClick={() =>
+              action(
+                () =>
+                  api.setSkills(
+                    skills
+                      .split(",")
+                      .map((s) => s.trim())
+                      .filter(Boolean)
+                  ),
+                "Skills updated"
+              )
+            }
+          >
+            Update skills
+          </button>
+
+
+          {/* ================= AVAILABILITY ================= */}
+
+          <input
+            type="date"
+            value={date}
+            onChange={(e) =>
+              setDate(e.target.value)
+            }
+          />
+
+          <button
+            className="secondary-btn small-btn"
+            disabled={!date}
+            onClick={() =>
+              action(
+                () =>
+                  api.setAvailability(
+                    date,
+                    true
+                  ),
+                "Availability saved"
+              )
+            }
+          >
+            Mark available
+          </button>
+
+
+          {/* ================= LOCATION ================= */}
+
+          <div className="section-label">
+            LOCATION
+          </div>
+
+          <input
+            value={area}
+            onChange={(e) =>
+              setArea(e.target.value)
+            }
+            placeholder="Area / City"
+          />
+
+          <input
+            type="number"
+            step="any"
+            value={latitude}
+            onChange={(e) =>
+              setLatitude(e.target.value)
+            }
+            placeholder="Latitude"
+          />
+
+          <input
+            type="number"
+            step="any"
+            value={longitude}
+            onChange={(e) =>
+              setLongitude(e.target.value)
+            }
+            placeholder="Longitude"
+          />
+
+          <button
+            className="secondary-btn small-btn"
+            onClick={() =>
+              action(
+                () =>
+                  api.updateWorkerProfile({
+                    area_text: area,
+                    latitude: Number(latitude),
+                    longitude: Number(longitude),
+                  }),
+                "Location saved"
+              )
+            }
+          >
+            Save location
+          </button>
+
+        </div>
+
+      </section>
+
+    </div>
+  );
+}
+
+function ContractorPanel({
+  items,
+  selectedJob,
+  recommendations,
+  onSelect,
+  action,
+}) {
+  const [form, setForm] = useState({
+    skill_name: "Painter",
+    job_date: "",
+    latitude: "12.9716",
+    longitude: "77.5946",
+    area_text: "Bengaluru",
+    wage: "800",
+    working_hours: "9:00 AM - 5:00 PM",
+    workers_required: 1,
+    min_experience: 0,
+    description: "",
+  });
+
+  const [applications, setApplications] = useState([]);
+
+  const set = (k, v) =>
+    setForm({
+      ...form,
+      [k]: v,
+    });
+
+  const loadApplications = async () => {
+    if (!selectedJob) {
+      setApplications([]);
+      return;
+    }
+
+    try {
+      const result = await api.applications(selectedJob.id);
+      setApplications(result.applications || []);
+    } catch (e) {
+      console.error("Failed to load applications:", e);
+      setApplications([]);
+    }
+  };
+
+  useEffect(() => {
+    loadApplications();
+  }, [selectedJob]);
+
+  const handleApplicationAction = async (
+    applicationId,
+    actionType,
+    successMessage
+  ) => {
+    await action(
+      async () => {
+        await api.post(
+          `/contractor/applications/${applicationId}/${actionType}`
+        );
+
+        await loadApplications();
+      },
+      successMessage
+    );
+  };
+
+  return (
+    <div className="dashboard-grid">
+
+      {/* LEFT SIDE — JOBS */}
+      <section className="dashboard-panel">
+        <div className="panel-head">
+          <div>
+            <div className="section-label">YOUR JOBS</div>
+            <h2>Requirements</h2>
+          </div>
+        </div>
+
+        <div className="job-create">
+          <input
+            placeholder="Skill"
+            value={form.skill_name}
+            onChange={(e) => set("skill_name", e.target.value)}
+          />
+
+          <input
+            type="date"
+            value={form.job_date}
+            onChange={(e) => set("job_date", e.target.value)}
+          />
+
+          <input
+            placeholder="Area"
+            value={form.area_text}
+            onChange={(e) => set("area_text", e.target.value)}
+          />
+
+          <div className="form-grid">
+            <input
+              type="number"
+              min="1"
+              placeholder="Wage/day"
+              value={form.wage}
+              onChange={(e) => set("wage", e.target.value)}
+            />
+
+            <input
+              type="number"
+              min="1"
+              placeholder="Workers"
+              value={form.workers_required}
+              onChange={(e) =>
+                set("workers_required", e.target.value)
+              }
+            />
+          </div>
+
+          <input
+            placeholder="Working hours"
+            value={form.working_hours}
+            onChange={(e) =>
+              set("working_hours", e.target.value)
+            }
+          />
+
+          <input
+            placeholder="Minimum experience (years)"
+            value={form.min_experience}
+            onChange={(e) =>
+              set("min_experience", e.target.value)
+            }
+          />
+
+          <button
+            className="primary-btn small-btn"
+            disabled={!form.job_date}
+            onClick={() =>
+              action(
+                () =>
+                  api.createJob({
+                    ...form,
+                    wage: Number(form.wage),
+                    workers_required: Number(form.workers_required),
+                    min_experience: Number(form.min_experience),
+                    latitude: Number(form.latitude),
+                    longitude: Number(form.longitude),
+                  }),
+                "Job posted"
+              )
+            }
+          >
+            Post requirement <span>→</span>
+          </button>
+        </div>
+
+        {items.length === 0 ? (
+          <div className="empty-panel">
+            No jobs yet. Use the API or add the job-posting form next.
+          </div>
+        ) : (
+          items.map((j) => (
+            <div className="live-row" key={j.id}>
+              <div>
+                <strong>{j.skill}</strong>
+
+                <small>
+                  {j.area_text || "Location"} · ₹
+                  {Number(j.wage).toLocaleString("en-IN")}
+                  /day · {formatDate(j.job_date)}
+                </small>
+
+                <span className="reason-line">
+                  Status: {j.status}
+                </span>
+              </div>
+
+              <div className="row-actions">
+                <button
+                  className="dark-btn small-btn"
+                  onClick={() => onSelect(j)}
+                >
+                  Find workers
+                </button>
+
+                {j.status === "WORKER_SELECTED" && (
+                  <button
+                    className="secondary-btn small-btn"
+                    onClick={() =>
+                      action(
+                        () =>
+                          api.updateJobStatus(
+                            j.id,
+                            "CONFIRMED"
+                          ),
+                        "Job confirmed"
+                      )
+                    }
+                  >
+                    Confirm
+                  </button>
+                )}
+              </div>
+            </div>
+          ))
+        )}
+      </section>
+
+      {/* RIGHT SIDE — MATCHING + APPLICATIONS */}
+      <section className="dashboard-panel">
+
+        {/* MATCH ENGINE */}
+        <div className="section-label">
+          MATCH ENGINE
+        </div>
+
+        <h2>
+          {selectedJob
+            ? `Ranked workers for ${selectedJob.skill}`
+            : "Select a job"}
+        </h2>
+
+        {selectedJob && recommendations.length === 0 && (
+          <div className="empty-panel">
+            No eligible workers matched the hard filters.
+          </div>
+        )}
+
+        {recommendations.map((w) => (
+          <div className="live-row" key={w.id}>
+            <div>
+              <strong>{w.full_name}</strong>
+
+              <small>
+                {(w.skills || []).join(", ")} ·{" "}
+                {w.experience_years} yrs ·{" "}
+                {w.area_text || "Location unavailable"}
+              </small>
+
+              <span className="reason-line">
+                {(w.reasons || [])
+                  .slice(0, 4)
+                  .join(" · ")}
+              </span>
+            </div>
+
+            <div className="row-actions">
+              <b>{Math.round(w.match_score)}%</b>
+            </div>
+          </div>
+        ))}
+
+        {/* APPLICATIONS */}
+        {selectedJob && (
+          <>
+            <div
+              style={{
+                marginTop: "32px",
+                paddingTop: "24px",
+                borderTop: "1px solid #e5e0d8",
+              }}
+            >
+              <div className="section-label">
+                APPLICATIONS
+              </div>
+
+              <h2>
+                Applications
+                {applications.length > 0 &&
+                  ` · ${applications.length}`}
+              </h2>
+            </div>
+
+            {applications.length === 0 ? (
+              <div className="empty-panel">
+                No applications received for this job yet.
+              </div>
+            ) : (
+              applications.map((application) => (
+                <div
+                  className="live-row"
+                  key={application.application_id}
+                >
+                  <div>
+                    <strong>
+                      {application.full_name}
+                    </strong>
+
+                    <small>
+                      {(application.skills || []).join(", ")}
+                      {" · "}
+                      {application.experience_years || 0} yrs
+                      {" · "}
+                      {application.area_text ||
+                        "Location unavailable"}
+                    </small>
+
+                    <span className="reason-line">
+                      Status:{" "}
+                      {application.application_status}
+                    </span>
+
+                    {application.match_score !== null &&
+                      application.match_score !== undefined && (
+                        <span className="reason-line">
+                          Match score:{" "}
+                          {Math.round(
+                            application.match_score
+                          )}
+                          %
+                        </span>
+                      )}
+                  </div>
+
+                  <div className="row-actions">
+                    {application.application_status ===
+                      "PENDING" && (
+                      <>
+                        <button
+                          className="dark-btn small-btn"
+                          onClick={() =>
+                            handleApplicationAction(
+                              application.application_id,
+                              "select",
+                              "Worker selected"
+                            )
+                          }
+                        >
+                          Select
+                        </button>
+
+                        <button
+                          className="secondary-btn small-btn"
+                          onClick={() =>
+                            handleApplicationAction(
+                              application.application_id,
+                              "reject",
+                              "Application rejected"
+                            )
+                          }
+                        >
+                          Reject
+                        </button>
+                      </>
+                    )}
+
+                    {application.application_status ===
+                      "SELECTED" && (
+                      <b>SELECTED</b>
+                    )}
+
+                    {application.application_status ===
+                      "REJECTED" && (
+                      <b>REJECTED</b>
+                    )}
+                  </div>
+                </div>
+              ))
+            )}
+          </>
+        )}
+      </section>
+    </div>
+  );
+}
 
 export default App;
