@@ -170,6 +170,7 @@ def job_applications(job_id):
 
         worker["application_id"] = application.id
         worker["application_status"] = application.status
+        worker["has_rating"] = application.rating is not None
         worker["match_score"] = application.match_score
         worker["score_breakdown"] = application.score_breakdown
         worker["applied_at"] = (

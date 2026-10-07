@@ -173,13 +173,121 @@ function AuthModal({ mode, setMode, onSubmit, error }) {
 }
 
 function Dashboard({ user, onLogout }) {
-  const [stats, setStats] = useState({}); const [items, setItems] = useState([]); const [applications, setApplications] = useState([]); const [notifications, setNotifications] = useState([]); const [profile, setProfile] = useState(null); const [selectedJob, setSelectedJob] = useState(null); const [recommendations, setRecommendations] = useState([]); const [message, setMessage] = useState(""); const [loading, setLoading] = useState(true);
+const [stats, setStats] = useState({});
+const [items, setItems] = useState([]);
+const [applications, setApplications] = useState([]); 
+const [notifications, setNotifications] = useState([]); const [profile, setProfile] = useState(null); const [selectedJob, setSelectedJob] = useState(null); const [recommendations, setRecommendations] = useState([]); const [message, setMessage] = useState(""); const [loading, setLoading] = useState(true);
   const worker = user.role === "worker";
   const load = async () => { setLoading(true); try { const [s,p,n] = await Promise.all([worker ? api.workerStats() : api.contractorStats(), worker ? api.workerProfile() : api.contractorProfile(), api.notifications()]); setStats(s); setProfile(p.profile); setNotifications(n.notifications || []); if (worker) { const [r, a] = await Promise.all([api.recommendedJobs(), api.workerApplications()]); setItems(r.jobs || []); setApplications(a.applications || []); } else { const r=await api.contractorJobs(); setItems(r.jobs || []); setApplications([]); } } catch(e) { setMessage(e.message); } finally { setLoading(false); } };
   useEffect(() => { load(); }, []);
   async function action(fn, success="Done") { try { await fn(); setMessage(success); await load(); } catch(e) { setMessage(e.message); } }
   async function getRecommendations(job) { setSelectedJob(job); try { const r=await api.recommendations(job.id); setRecommendations(r.workers || []); } catch(e) { setMessage(e.message); } }
-  return <div className="dashboard-shell"><header className="navbar"><div className="nav-container"><div className="brand"><div className="brand-icon">S</div><div><div className="brand-name">SkillPulse</div><div className="brand-tagline">WORK. MATCHED.</div></div></div><div className="dashboard-user"><span>{user.role}</span><strong>{user.email}</strong><button className="login-btn" onClick={onLogout}>Logout</button></div></div></header><main className="dashboard-main"><div className="dashboard-head"><div><div className="section-label">{worker ? "WORKER DASHBOARD" : "CONTRACTOR DASHBOARD"}</div><h1>{worker ? "Your work, matched." : "Build your next crew."}</h1><p>{worker ? "Live recommendations are calculated from your profile and availability." : "Post requirements and review ranked workers from your live database."}</p></div></div>{message && <div className="inline-error">{message}</div>}<div className="dashboard-stats">{Object.entries(stats).slice(0,5).map(([k,v]) => <div className="dashboard-stat" key={k}><small>{k.replaceAll("_", " ")}</small><strong>{typeof v === "number" && k.includes("score") ? `${Math.round(v*100)}%` : v}</strong></div>)}</div>{worker ? <WorkerPanel items={items} profile={profile} applications={applications} notifications={notifications} action={action} /> : <ContractorPanel items={items} selectedJob={selectedJob} recommendations={recommendations} onSelect={getRecommendations} action={action} />}</main><div className="dashboard-footer">SkillPulse · live application data · model-assisted matching</div></div>;
+  return <div className="dashboard-shell"><header className="navbar"><div className="nav-container"><div className="brand"><div className="brand-icon">S</div><div><div className="brand-name">SkillPulse</div><div className="brand-tagline">WORK. MATCHED.</div></div></div>
+  <div
+  className="dashboard-user"
+  style={{
+    marginLeft: "auto",
+    display: "flex",
+    alignItems: "center",
+    gap: "18px",
+    visibility: "visible",
+    opacity: 1,
+    color: "#222"
+  }}
+>
+  <span
+    style={{
+      display: "inline-block",
+      color: "#f97316",
+      fontSize: "12px",
+      fontWeight: 700,
+      textTransform: "uppercase",
+      letterSpacing: "1px"
+    }}
+  >
+    {user.role}
+  </span>
+
+  <strong
+    style={{
+      display: "inline-block",
+      color: "#222",
+      fontSize: "14px",
+      fontWeight: 600
+    }}
+  >
+    {user.email}
+  </strong>
+
+  <button
+    type="button"
+    title="Notifications"
+    onClick={() => {
+      document
+        .getElementById("dashboard-notifications")
+        ?.scrollIntoView({ behavior: "smooth" });
+    }}
+    style={{
+      position: "relative",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      width: "42px",
+      height: "42px",
+      border: "1px solid #e5e0d8",
+      borderRadius: "50%",
+      background: "#ffffff",
+      fontSize: "20px",
+      cursor: "pointer"
+    }}
+  >
+    🔔
+
+    {notifications.filter((n) => !n.is_read).length > 0 && (
+      <span
+        style={{
+          position: "absolute",
+          top: "-3px",
+          right: "-3px",
+          minWidth: "19px",
+          height: "19px",
+          borderRadius: "50%",
+          background: "#f97316",
+          color: "#ffffff",
+          fontSize: "10px",
+          fontWeight: 800,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          border: "2px solid #ffffff"
+        }}
+      >
+        {notifications.filter((n) => !n.is_read).length}
+      </span>
+    )}
+  </button>
+
+  <button
+    type="button"
+    onClick={onLogout}
+    style={{
+      display: "inline-flex",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: "10px 18px",
+      border: "1px solid #e5e0d8",
+      borderRadius: "8px",
+      background: "transparent",
+      color: "#222",
+      fontSize: "14px",
+      fontWeight: 600,
+      cursor: "pointer"
+    }}
+  >
+    Logout
+  </button>
+</div>
+</div></header><main className="dashboard-main"><div className="dashboard-head"><div><div className="section-label">{worker ? "WORKER DASHBOARD" : "CONTRACTOR DASHBOARD"}</div><h1>{worker ? "Your work, matched." : "Build your next crew."}</h1><p>{worker ? "Live recommendations are calculated from your profile and availability." : "Post requirements and review ranked workers from your live database."}</p></div></div>{message && <div className="inline-error">{message}</div>}<div className="dashboard-stats">{Object.entries(stats).slice(0,5).map(([k,v]) => <div className="dashboard-stat" key={k}><small>{k.replaceAll("_", " ")}</small><strong>{typeof v === "number" && k.includes("score") ? `${Math.round(v*100)}%` : v}</strong></div>)}</div>{worker ? <WorkerPanel items={items} profile={profile} applications={applications} notifications={notifications} action={action} /> : <ContractorPanel items={items} selectedJob={selectedJob} recommendations={recommendations} onSelect={getRecommendations} action={action} notifications={notifications} />}</main><div className="dashboard-footer">SkillPulse · live application data · model-assisted matching</div></div>;
 }
 
 function WorkerPanel({ items, profile, applications, notifications, action }) {
@@ -419,17 +527,24 @@ function WorkerPanel({ items, profile, applications, notifications, action }) {
             </div>
           </>
         )}
-      </section>
+               
+        
+</section>
     </div>
   );
 }
 
+
+
+           
+   
 function ContractorPanel({
   items,
   selectedJob,
   recommendations,
   onSelect,
   action,
+  notifications,
 }) {
   const [form, setForm] = useState({
     skill_name: "Painter",
@@ -446,6 +561,10 @@ function ContractorPanel({
 
   const [applications, setApplications] = useState([]);
 
+  const [ratingApplication, setRatingApplication] = useState(null);
+  const [ratingValue, setRatingValue] = useState(0);
+  const [ratingComment, setRatingComment] = useState("");
+
   const set = (k, v) =>
     setForm({
       ...form,
@@ -459,14 +578,16 @@ function ContractorPanel({
     }
 
     try {
-      const result = await api.applications(selectedJob.id);
-      setApplications(result.applications || []);
-    } catch (e) {
-      console.error("Failed to load applications:", e);
-      setApplications([]);
-    }
-  };
+  const result = await api.applications(selectedJob.id);
 
+  console.log("APPLICATIONS RESPONSE:", result.applications);
+
+  setApplications(result.applications || []);
+} catch (e) {
+  console.error("Failed to load applications:", e);
+  setApplications([]);
+}
+  };
   useEffect(() => {
     loadApplications();
   }, [selectedJob]);
@@ -739,16 +860,41 @@ function ContractorPanel({
   )}
 
   {j.status === "CONFIRMED" && (
-    <span className="contractor-complete-badge">
-      ✓ Confirmed
-    </span>
-  )}
+  <button
+    className="contractor-confirm-btn"
+    onClick={() =>
+      action(
+        () => api.updateJobStatus(j.id, "IN_PROGRESS"),
+        "Job marked as in progress"
+      )
+    }
+  >
+    Start job →
+  </button>
+)}
+
+{j.status === "IN_PROGRESS" && (
+  <button
+    className="contractor-confirm-btn"
+    onClick={() =>
+      action(
+        () => api.updateJobStatus(j.id, "COMPLETED"),
+        "Job completed — you can now rate the worker"
+      )
+    }
+  >
+    Complete job ✓
+  </button>
+)}
 
   {j.status === "COMPLETED" && (
-    <span className="contractor-complete-badge">
-      ✓ Completed
-    </span>
-  )}
+  <button
+    className="contractor-complete-badge"
+    onClick={() => onSelect(j)}
+  >
+    ✓ Completed · View
+  </button>
+)}
 
 </div>
 
@@ -1061,16 +1207,243 @@ const rankIcon =
                         Rejected
                       </span>
                     )}
+                   {application.application_status === "COMPLETED" && (
+  <>
+    {application.has_rating ? (
+      <span className="contractor-selected-badge">
+        ✓ Worker Rated
+      </span>
+    ) : (
+      <button
+        type="button"
+        className="contractor-rate-btn"
+        onClick={() => {
+          setRatingApplication(application);
+          setRatingValue(0);
+          setRatingComment("");
+        }}
+      >
+        ⭐ Rate Worker
+      </button>
+    )}
+  </>
+)}
+    
+
 
                   </div>
                 </div>
               ))
             )}
           </>
+                )}
+
+        {/* NOTIFICATIONS */}
+        <section
+          id="dashboard-notifications"
+          className="worker-notifications-panel"
+          style={{ marginTop: "32px" }}
+        >
+          <div className="panel-head">
+            <div>
+              <div className="section-label">NOTIFICATIONS</div>
+              <h2>Stay on top of your work.</h2>
+            </div>
+
+            <span className="match-count">
+              {notifications.filter((n) => !n.is_read).length} unread
+            </span>
+          </div>
+
+          {notifications.length === 0 ? (
+            <div className="worker-empty-panel compact-empty">
+              <div className="empty-icon">◷</div>
+
+              <strong>No notifications yet</strong>
+
+              <p>
+                Updates about applications and worker decisions will appear
+                here.
+              </p>
+            </div>
+          ) : (
+            <>
+              <div className="notification-toolbar">
+                {notifications.some((n) => !n.is_read) && (
+                  <button
+                    className="secondary-btn small-btn"
+                    onClick={() =>
+                      action(
+                        () => api.markAllNotificationsRead(),
+                        "All notifications marked as read"
+                      )
+                    }
+                  >
+                    Mark all as read
+                  </button>
+                )}
+              </div>
+
+              <div className="notification-list">
+                {notifications.map((notification) => (
+                  <article
+                    className={`notification-card ${
+                      notification.is_read ? "read" : "unread"
+                    }`}
+                    key={notification.id}
+                  >
+                    <div className="notification-icon">
+                      {notification.notif_type === "SELECTED"
+                        ? "✓"
+                        : notification.notif_type === "REJECTED"
+                        ? "×"
+                        : "•"}
+                    </div>
+
+                    <div className="notification-content">
+                      <div className="notification-title-row">
+                        <strong>
+                          {notification.notif_type === "SELECTED"
+                            ? "Application selected"
+                            : notification.notif_type === "REJECTED"
+                            ? "Application update"
+                            : "SkillPulse update"}
+                        </strong>
+
+                        {!notification.is_read && (
+                          <span className="unread-dot">NEW</span>
+                        )}
+                      </div>
+
+                      <p>{notification.message}</p>
+
+                      <small>
+                        {notification.created_at
+                          ? new Date(
+                              notification.created_at
+                            ).toLocaleString()
+                          : ""}
+                      </small>
+                    </div>
+
+                    {!notification.is_read && (
+                      <button
+                        className="text-action"
+                        onClick={() =>
+                          action(
+                            () =>
+                              api.markNotificationRead(
+                                notification.id
+                              ),
+                            "Notification marked as read"
+                          )
+                        }
+                      >
+                        Mark read
+                      </button>
+                    )}
+                  </article>
+                ))}
+              </div>
+            </>
+          )}
+                </section>
+
+        {ratingApplication && (
+          <div className="modal-backdrop">
+            <div className="auth-modal rating-modal">
+
+              <button
+                type="button"
+                className="modal-close"
+                onClick={() => setRatingApplication(null)}
+              >
+                ×
+              </button>
+
+              <div className="section-label">
+                WORKER FEEDBACK
+              </div>
+
+              <h2>
+                Rate {ratingApplication.full_name}
+              </h2>
+
+              <p>
+                How was your experience working with this worker?
+              </p>
+
+              <div className="rating-stars">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <button
+                    key={star}
+                    type="button"
+                    className={star <= ratingValue ? "selected" : ""}
+                    onClick={() => setRatingValue(star)}
+                  >
+                    ★
+                  </button>
+                ))}
+              </div>
+
+              <div className="rating-value">
+                {ratingValue === 0
+                  ? "Select a rating"
+                  : `${ratingValue} out of 5`}
+              </div>
+
+              <textarea
+                value={ratingComment}
+                onChange={(e) => setRatingComment(e.target.value)}
+                placeholder="Write a short review (optional)..."
+                rows="4"
+              />
+
+              <button
+                type="button"
+                className="primary-btn full-btn"
+                disabled={ratingValue === 0}
+                onClick={async () => {
+  alert("Submit button clicked!");
+
+  try {
+    const applicationId =
+      ratingApplication.application_id || ratingApplication.id;
+
+    alert("Application ID: " + applicationId);
+
+    const result = await api.rateWorker(
+      applicationId,
+      ratingValue,
+      ratingComment
+    );
+
+    console.log("RATING SUCCESS:", result);
+    alert("Rating submitted successfully!");
+
+    setRatingApplication(null);
+    setRatingValue(0);
+    setRatingComment("");
+
+    await loadApplications();
+  } catch (e) {
+    console.error("RATING ERROR:", e);
+    alert("RATING ERROR: " + e.message);
+  }
+}}
+              >
+                Submit rating →
+              </button>
+
+            </div>
+          </div>
         )}
+
       </section>
     </div>
   );
 }
+      
+  
 
 export default App;

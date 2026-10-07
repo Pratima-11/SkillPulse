@@ -209,6 +209,16 @@ contractorStats: () =>
     method: "GET",
   }),
 
+  // Rate a worker after job completion
+  rateWorker: (applicationId, ratingValue, comment = "") =>
+    request(`/contractor/applications/${applicationId}/rate`, {
+      method: "POST",
+      body: JSON.stringify({
+        rating_value: Number(ratingValue),
+        comment,
+      }),
+    }),  
+
 };
 
 export const healthCheck = () => api.get("/health");
