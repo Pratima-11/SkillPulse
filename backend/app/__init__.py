@@ -34,6 +34,7 @@ def create_app(config_class=Config):
     from routes.admin_routes import admin_bp
     from routes.notification_routes import notification_bp
     from routes.public_routes import public_bp
+    from routes.worker_photo_routes import worker_photo_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(worker_bp)
@@ -43,6 +44,7 @@ def create_app(config_class=Config):
     app.register_blueprint(admin_bp)
     app.register_blueprint(notification_bp)
     app.register_blueprint(public_bp)
+    app.register_blueprint(worker_photo_bp)
 
     # Error handlers
     @app.errorhandler(404)

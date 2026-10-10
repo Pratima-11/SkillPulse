@@ -3,3 +3,15 @@ venv/
 __pycache__/
 *.pyc
 node_modules/
+# Local uploads and database files
+/backend/app/uploads/
+/backend/uploads/
+/backend/instance/
+
+# Generated frontend builds
+/frontend_bup2/dist/
+
+# Environment secrets
+.env
+.env.*
+!.env.example

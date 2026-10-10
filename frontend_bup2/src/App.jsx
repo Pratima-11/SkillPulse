@@ -360,6 +360,7 @@ const [notifications, setNotifications] = useState([]); const [profile, setProfi
 
 function AdminPanel({ stats, message }) {
   const [workers, setWorkers] = useState([]);
+  const [workerPhotoUrls, setWorkerPhotoUrls] = useState({});
   const [filter, setFilter] = useState("pending");
   const [loadingWorkers, setLoadingWorkers] = useState(false);
   const [error, setError] = useState("");
@@ -381,6 +382,48 @@ function AdminPanel({ stats, message }) {
   useEffect(() => {
     loadWorkers();
   }, [filter]);
+
+  
+useEffect(() => {
+  let cancelled = false;
+  const objectUrls = [];
+
+  async function loadPhotos() {
+    const photoResults = await Promise.all(
+      workers.map(async (worker) => {
+        try {
+          const url = await api.fetchWorkerPhoto(worker.id);
+          objectUrls.push(url);
+          return [worker.id, url];
+        } catch {
+          return [worker.id, null];
+        }
+      })
+    );
+
+    if (!cancelled) {
+      setWorkerPhotoUrls(
+        Object.fromEntries(
+          photoResults.filter(([, url]) => url)
+        )
+      );
+    } else {
+      objectUrls.forEach((url) => URL.revokeObjectURL(url));
+    }
+  }
+
+  if (workers.length > 0) {
+    loadPhotos();
+  } else {
+    setWorkerPhotoUrls({});
+  }
+
+  return () => {
+    cancelled = true;
+    objectUrls.forEach((url) => URL.revokeObjectURL(url));
+  };
+}, [workers]);
+
 
   async function updateVerification(workerId, status) {
     const actionText = status === "verified" ? "verify" : "reject";
@@ -444,6 +487,22 @@ function AdminPanel({ stats, message }) {
             {workers.map((worker) => (
               <article className="worker-job-card" key={worker.id}>
                 <div className="worker-job-main">
+                  
+                  {workerPhotoUrls[worker.id] && (
+                    <img
+                      src={workerPhotoUrls[worker.id]}
+                      alt={`${worker.full_name || "Worker"} profile`}
+                      style={{
+                        width: "88px",
+                        height: "88px",
+                        objectFit: "cover",
+                        borderRadius: "12px",
+                        border: "1px solid #ddd",
+                        marginRight: "16px",
+                      }}
+                    />
+                  )}
+
                   <div className="worker-job-info">
                     <h3>{worker.full_name || `Worker #${worker.id}`}</h3>
                     <p>Worker ID: {worker.id}</p>
@@ -452,6 +511,59 @@ function AdminPanel({ stats, message }) {
                       <strong>{worker.verification_status}</strong>
                     </p>
                     {worker.area_text && <p>Area: {worker.area_text}</p>}
+                    
+            <div className="mini-form">
+              <label>WORKER PROFILE PHOTO</label>
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+
+                  if (file.size > 2 * 1024 * 1024) {
+                    setError("Photo must be 2 MB or smaller.");
+                    e.target.value = "";
+                    return;
+                  }
+
+                  setError("");
+                  setWorkers((current) =>
+                    current.map((item) =>
+                      item.id === worker.id
+                        ? { ...item, selectedPhoto: file }
+                        : item
+                    )
+                  );
+                }}
+              />
+
+              {worker.selectedPhoto && (
+                <p>{worker.selectedPhoto.name}</p>
+              )}
+
+  <button
+    type="button"
+    className="primary-btn small-btn"
+    disabled={!worker.selectedPhoto}
+    onClick={async () => {
+      try {
+        setError("");
+        await api.uploadAdminWorkerPhoto(
+          worker.id,
+          worker.selectedPhoto
+        );
+        message(`Photo uploaded for ${worker.full_name || `Worker #${worker.id}`}.`);
+        await loadWorkers();
+      } catch (err) {
+        setError(err.message || "Photo upload failed.");
+      }
+    }}
+  >
+    Upload worker photo
+  </button>
+</div>
+
                     {worker.expected_wage != null && (
                       <p>Expected wage: ₹{worker.expected_wage}/day</p>
                     )}
@@ -495,6 +607,9 @@ function WorkerPanel({ items, profile, applications, notifications, action }) {
   const [phone, setPhone] = useState(profile?.phone || "");
   const [experience, setExperience] = useState(profile?.experience_years ?? 0);
   const [wage, setWage] = useState(profile?.expected_wage ?? 0);
+  const [photoFile, setPhotoFile] = useState(null);
+  const [photoPreview, setPhotoPreview] = useState("");
+  const [photoError, setPhotoError] = useState("");
 
   const today = new Date().toISOString().slice(0, 10);
 
@@ -530,6 +645,31 @@ function WorkerPanel({ items, profile, applications, notifications, action }) {
       () => api.setAvailability(date, true),
       "Availability saved — refreshing your matches"
     );
+    
+const uploadPhoto = async () => {
+  if (!photoFile) {
+    setPhotoError("Please select a photo first.");
+    return;
+  }
+
+  if (photoFile.size > 2 * 1024 * 1024) {
+    setPhotoError("Photo must be 2 MB or smaller.");
+    return;
+  }
+
+  setPhotoError("");
+
+  try {
+    await action(
+      () => api.uploadWorkerPhoto(photoFile),
+      "Profile photo uploaded successfully"
+    );
+    setPhotoFile(null);
+    setPhotoPreview("");
+  } catch (err) {
+    setPhotoError(err.message || "Photo upload failed.");
+  }
+};
 
   return (
     <div className="dashboard-grid contractor-dashboard-grid">
@@ -581,6 +721,62 @@ function WorkerPanel({ items, profile, applications, notifications, action }) {
         <div className="section-label">PROFILE SETTINGS</div>
         <h2>Keep your profile current.</h2>
         <p className="panel-description">Better profile data gives the matching engine more information to rank suitable work.</p>
+        
+<div className="settings-divider" />
+
+<div className="section-label">PROFILE PHOTO</div>
+<p className="panel-description">
+  Upload a clear photograph of yourself. JPG, PNG, and WebP images up to 2 MB are supported.
+</p>
+
+{photoPreview && (
+  <img
+    src={photoPreview}
+    alt="Selected profile preview"
+    style={{
+      width: "100px",
+      height: "100px",
+      objectFit: "cover",
+      borderRadius: "50%",
+      marginBottom: "12px",
+    }}
+  />
+)}
+
+<input
+  type="file"
+  accept="image/jpeg,image/png,image/webp"
+  onChange={(e) => {
+    const file = e.target.files?.[0];
+
+    if (!file) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+      setPhotoFile(null);
+      setPhotoPreview("");
+      setPhotoError("Photo must be 2 MB or smaller.");
+      e.target.value = "";
+      return;
+    }
+
+    setPhotoFile(file);
+    setPhotoPreview(URL.createObjectURL(file));
+    setPhotoError("");
+  }}
+/>
+
+    {photoError && (
+      <div className="inline-error">{photoError}</div>
+    )}
+
+    <button
+      type="button"
+      className="primary-btn small-btn"
+      disabled={!photoFile}
+      onClick={uploadPhoto}
+    >
+      Upload photo →
+    </button>
 
         <div className="mini-form">
           <div className="worker-form-grid">

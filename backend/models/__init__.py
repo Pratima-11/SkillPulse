@@ -13,6 +13,7 @@ from models.job_application import JobApplication
 from models.availability import Availability
 from models.rating import Rating
 from models.notification import Notification
+from models.worker_photo import WorkerPhoto
 
 __all__ = [
     "User",
@@ -25,4 +26,5 @@ __all__ = [
     "Availability",
     "Rating",
     "Notification",
+    "WorkerPhoto"
 ]

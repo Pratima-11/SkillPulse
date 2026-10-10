@@ -35,6 +35,63 @@ async function request(endpoint, options = {}) {
   return data;
 }
 
+
+async function fetchWorkerPhoto(workerId) {
+  const token = localStorage.getItem("skillpulse_token");
+
+  const response = await fetch(
+    `${API_BASE_URL}/worker-photos/${workerId}`,
+    {
+      method: "GET",
+      headers: token
+        ? { Authorization: `Bearer ${token}` }
+        : {},
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(`Could not load worker photo (${response.status})`);
+  }
+
+  return URL.createObjectURL(await response.blob());
+}
+
+
+
+async function uploadRequest(endpoint, file) {
+  const token = localStorage.getItem("skillpulse_token");
+  const formData = new FormData();
+
+  formData.append("photo", file);
+
+  const headers = {};
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    method: "POST",
+    headers,
+    body: formData,
+  });
+
+  let data = {};
+  try {
+    data = await response.json();
+  } catch {
+    data = {};
+  }
+
+  if (!response.ok) {
+    throw new Error(
+      data.error || `Upload failed with status ${response.status}`
+    );
+  }
+
+  return data;
+}
+
+
 export const api = {
   get: (endpoint) =>
     request(endpoint, {
@@ -242,6 +299,20 @@ contractorStats: () =>
   adminContractors: () => request("/admin/contractors"),
   adminJobs: (status = "") =>
     request(`/admin/jobs${status ? `?status=${encodeURIComponent(status)}` : ""}`),
+
+
+  // Upload the logged-in worker's profile photo
+  uploadWorkerPhoto: (file) =>
+    uploadRequest("/worker/photo", file),
+
+  // Retrieve an authenticated worker profile photo
+fetchWorkerPhoto: (workerId) =>
+  fetchWorkerPhoto(workerId),
+
+  // Admin-assisted worker photo upload
+  uploadAdminWorkerPhoto: (workerId, file) =>
+    uploadRequest(`/admin/workers/${workerId}/photo`, file),
+
 
 
 };
