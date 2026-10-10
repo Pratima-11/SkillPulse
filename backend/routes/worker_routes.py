@@ -164,7 +164,9 @@ def recommended_jobs():
     except ValidationError as e:
         return jsonify({"error": str(e)}), 404
 
-    open_jobs = Job.query.filter(Job.status.in_(["POSTED", "MATCHING", "APPLICANTS"])).all()
+    open_jobs = Job.query.filter(
+    Job.status.in_(["POSTED", "MATCHING", "APPLICANTS"]),
+    Job.job_date >= date.today()).all()
 
     recommendations = []
     for job in open_jobs:

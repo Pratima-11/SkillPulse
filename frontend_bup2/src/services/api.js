@@ -209,6 +209,7 @@ contractorStats: () =>
     method: "GET",
   }),
 
+
   // Rate a worker after job completion
   rateWorker: (applicationId, ratingValue, comment = "") =>
     request(`/contractor/applications/${applicationId}/rate`, {
@@ -217,7 +218,31 @@ contractorStats: () =>
         rating_value: Number(ratingValue),
         comment,
       }),
-    }),  
+    }),
+
+  // Admin dashboard
+  adminStats: () => request("/admin/stats"),
+
+  // List workers, optionally filtered by verification status
+  adminWorkers: (status = "") =>
+    request(
+      `/admin/workers${status ? `?verification_status=${encodeURIComponent(status)}` : ""}`
+    ),
+
+  // Update a worker's verification status
+  verifyWorker: (workerId, verificationStatus) =>
+    request(`/admin/workers/${workerId}/verify`, {
+      method: "POST",
+      body: JSON.stringify({
+        verification_status: verificationStatus,
+      }),
+    }),
+
+  // Admin contractor and job lists
+  adminContractors: () => request("/admin/contractors"),
+  adminJobs: (status = "") =>
+    request(`/admin/jobs${status ? `?status=${encodeURIComponent(status)}` : ""}`),
+
 
 };
 

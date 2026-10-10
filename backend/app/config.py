@@ -19,7 +19,10 @@ class Config:
     MAX_CONTENT_LENGTH = int(os.environ.get("MAX_CONTENT_LENGTH", 2 * 1024 * 1024))
     FRONTEND_ORIGIN = os.environ.get("FRONTEND_ORIGIN", "http://localhost:5173")
 
-    SQLALCHEMY_DATABASE_URI = os.environ.get("DATABASE_URL", "sqlite:///skillpulse.db")
+    SQLALCHEMY_DATABASE_URI = os.environ.get(
+    "DATABASE_URL",
+    "mysql+pymysql://root:password@localhost:3306/skillpulse")
+
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_ENGINE_OPTIONS = {
         "pool_pre_ping": True,  # avoids "MySQL server has gone away" errors

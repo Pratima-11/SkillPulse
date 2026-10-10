@@ -177,8 +177,53 @@ const [stats, setStats] = useState({});
 const [items, setItems] = useState([]);
 const [applications, setApplications] = useState([]); 
 const [notifications, setNotifications] = useState([]); const [profile, setProfile] = useState(null); const [selectedJob, setSelectedJob] = useState(null); const [recommendations, setRecommendations] = useState([]); const [message, setMessage] = useState(""); const [loading, setLoading] = useState(true);
+  
   const worker = user.role === "worker";
-  const load = async () => { setLoading(true); try { const [s,p,n] = await Promise.all([worker ? api.workerStats() : api.contractorStats(), worker ? api.workerProfile() : api.contractorProfile(), api.notifications()]); setStats(s); setProfile(p.profile); setNotifications(n.notifications || []); if (worker) { const [r, a] = await Promise.all([api.recommendedJobs(), api.workerApplications()]); setItems(r.jobs || []); setApplications(a.applications || []); } else { const r=await api.contractorJobs(); setItems(r.jobs || []); setApplications([]); } } catch(e) { setMessage(e.message); } finally { setLoading(false); } };
+  const admin = user.role === "admin";
+
+  const load = async () => {
+    setLoading(true);
+
+    try {
+      if (admin) {
+        const s = await api.adminStats();
+        setStats(s);
+        setProfile(null);
+        setNotifications([]);
+        setItems([]);
+        setApplications([]);
+        return;
+      }
+
+      const [s, p, n] = await Promise.all([
+        worker ? api.workerStats() : api.contractorStats(),
+        worker ? api.workerProfile() : api.contractorProfile(),
+        api.notifications(),
+      ]);
+
+      setStats(s);
+      setProfile(p.profile);
+      setNotifications(n.notifications || []);
+
+      if (worker) {
+        const [r, a] = await Promise.all([
+          api.recommendedJobs(),
+          api.workerApplications(),
+        ]);
+        setItems(r.jobs || []);
+        setApplications(a.applications || []);
+      } else {
+        const r = await api.contractorJobs();
+        setItems(r.jobs || []);
+        setApplications([]);
+      }
+    } catch (e) {
+      setMessage(e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => { load(); }, []);
   async function action(fn, success="Done") { try { await fn(); setMessage(success); await load(); } catch(e) { setMessage(e.message); } }
   async function getRecommendations(job) { setSelectedJob(job); try { const r=await api.recommendations(job.id); setRecommendations(r.workers || []); } catch(e) { setMessage(e.message); } }
@@ -287,8 +332,158 @@ const [notifications, setNotifications] = useState([]); const [profile, setProfi
     Logout
   </button>
 </div>
-</div></header><main className="dashboard-main"><div className="dashboard-head"><div><div className="section-label">{worker ? "WORKER DASHBOARD" : "CONTRACTOR DASHBOARD"}</div><h1>{worker ? "Your work, matched." : "Build your next crew."}</h1><p>{worker ? "Live recommendations are calculated from your profile and availability." : "Post requirements and review ranked workers from your live database."}</p></div></div>{message && <div className="inline-error">{message}</div>}<div className="dashboard-stats">{Object.entries(stats).slice(0,5).map(([k,v]) => <div className="dashboard-stat" key={k}><small>{k.replaceAll("_", " ")}</small><strong>{typeof v === "number" && k.includes("score") ? `${Math.round(v*100)}%` : v}</strong></div>)}</div>{worker ? <WorkerPanel items={items} profile={profile} applications={applications} notifications={notifications} action={action} /> : <ContractorPanel items={items} selectedJob={selectedJob} recommendations={recommendations} onSelect={getRecommendations} action={action} notifications={notifications} />}</main><div className="dashboard-footer">SkillPulse · live application data · model-assisted matching</div></div>;
+</div></header><main className="dashboard-main"><div className="dashboard-head"><div><div className="section-label">{worker ? "WORKER DASHBOARD" : "CONTRACTOR DASHBOARD"}</div><h1>{worker ? "Your work, matched." : "Build your next crew."}</h1><p>{worker ? "Live recommendations are calculated from your profile and availability." : "Post requirements and review ranked workers from your live database."}</p></div></div>{message && <div className="inline-error">{message}</div>}<div className="dashboard-stats">{Object.entries(stats).slice(0,5).map(([k,v]) => <div className="dashboard-stat" key={k}><small>{k.replaceAll("_", " ")}</small><strong>{typeof v === "number" && k.includes("score") ? `${Math.round(v*100)}%` : v}</strong></div>)}</div>{user.role === "admin" ? (
+  <AdminPanel
+    stats={stats}
+    message={setMessage}
+  />
+) : worker ? (
+  <WorkerPanel
+    items={items}
+    profile={profile}
+    applications={applications}
+    notifications={notifications}
+    action={action}
+  />
+) : (
+  <ContractorPanel
+    items={items}
+    selectedJob={selectedJob}
+    recommendations={recommendations}
+    onSelect={getRecommendations}
+    action={action}
+    notifications={notifications}
+  />
+)}</main><div className="dashboard-footer">SkillPulse · live application data · model-assisted matching</div></div>;
 }
+
+
+function AdminPanel({ stats, message }) {
+  const [workers, setWorkers] = useState([]);
+  const [filter, setFilter] = useState("pending");
+  const [loadingWorkers, setLoadingWorkers] = useState(false);
+  const [error, setError] = useState("");
+
+  async function loadWorkers() {
+    setLoadingWorkers(true);
+    setError("");
+
+    try {
+      const result = await api.adminWorkers(filter);
+      setWorkers(result.workers || []);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoadingWorkers(false);
+    }
+  }
+
+  useEffect(() => {
+    loadWorkers();
+  }, [filter]);
+
+  async function updateVerification(workerId, status) {
+    const actionText = status === "verified" ? "verify" : "reject";
+
+    if (!window.confirm(`Are you sure you want to ${actionText} this worker?`)) {
+      return;
+    }
+
+    try {
+      await api.verifyWorker(workerId, status);
+      message(`Worker ${status} successfully.`);
+      await loadWorkers();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  return (
+    <div className="dashboard-grid">
+      <section className="dashboard-panel">
+        <div className="section-label">ADMINISTRATION</div>
+        <h2>Platform overview</h2>
+
+        <div className="dashboard-stats">
+          {Object.entries(stats).map(([key, value]) => (
+            <div className="dashboard-stat" key={key}>
+              <small>{key.replaceAll("_", " ")}</small>
+              <strong>{value}</strong>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="dashboard-panel">
+        <div className="section-label">WORKER MANAGEMENT</div>
+        <h2>Worker verification</h2>
+        <p className="panel-description">
+          Review worker profiles and update their verification status.
+        </p>
+
+        <div className="mini-form">
+          <label>FILTER BY STATUS</label>
+          <select
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+          >
+            <option value="pending">Pending verification</option>
+            <option value="verified">Verified</option>
+            <option value="rejected">Rejected</option>
+          </select>
+        </div>
+
+        {error && <div className="inline-error">{error}</div>}
+
+        {loadingWorkers ? (
+          <p>Loading workers...</p>
+        ) : workers.length === 0 ? (
+          <p>No workers found for this status.</p>
+        ) : (
+          <div className="worker-job-list">
+            {workers.map((worker) => (
+              <article className="worker-job-card" key={worker.id}>
+                <div className="worker-job-main">
+                  <div className="worker-job-info">
+                    <h3>{worker.full_name || `Worker #${worker.id}`}</h3>
+                    <p>Worker ID: {worker.id}</p>
+                    <p>
+                      Verification status:{" "}
+                      <strong>{worker.verification_status}</strong>
+                    </p>
+                    {worker.area_text && <p>Area: {worker.area_text}</p>}
+                    {worker.expected_wage != null && (
+                      <p>Expected wage: ₹{worker.expected_wage}/day</p>
+                    )}
+                  </div>
+                </div>
+
+                {worker.verification_status !== "verified" && (
+                  <button
+                    className="primary-btn small-btn"
+                    onClick={() => updateVerification(worker.id, "verified")}
+                  >
+                    Verify worker
+                  </button>
+                )}
+
+                {worker.verification_status !== "rejected" && (
+                  <button
+                    className="secondary-btn small-btn"
+                    onClick={() => updateVerification(worker.id, "rejected")}
+                  >
+                    Reject
+                  </button>
+                )}
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}
+
 
 function WorkerPanel({ items, profile, applications, notifications, action }) {
   const [skills, setSkills] = useState((profile?.skills || []).join(", "));
@@ -787,14 +982,22 @@ function ContractorPanel({
 
   <div className="contractor-job-card-main">
 
-    <div className="contractor-job-icon">
-      {icons[j.skill] || "👷"}
+    <div
+        className="contractor-job-card-main"
+        onClick={() => onSelect(j)}
+        style={{ cursor: "pointer" }}
+      >
     </div>
 
     <div className="contractor-job-info">
 
       <div className="contractor-job-title">
-        <h3>{j.skill}</h3>
+        <h3
+            onClick={() => onSelect(j)}
+            style={{ cursor: "pointer" }}
+          >
+            {j.skill}
+        </h3>
 
         <span
           className={`contractor-status ${String(
@@ -944,6 +1147,15 @@ const rankIcon =
     ? "🥉"
     : "•";
   const breakdown = w.breakdown || {};
+  const weights = {
+  location: 0.30,
+  experience: 0.20,
+  wage: 0.20,
+  reliability: 0.30,
+};
+
+const contribution = (score, weight) =>
+  (Number(score || 0) * weight * 100).toFixed(1);
 
   const percentage = (value) =>
     Math.round(Number(value || 0) * 100);
@@ -987,9 +1199,10 @@ const rankIcon =
 
           <div className="match-factor">
             <div>
-              <span>Location</span>
+              <span>Location compatibility</span>
               <strong>
-                {percentage(breakdown.location_score)}%
+                {percentage(breakdown.location_score)}% · +
+                {contribution(breakdown.location_score, weights.location)} pts
               </strong>
             </div>
 
@@ -1004,10 +1217,11 @@ const rankIcon =
 
           <div className="match-factor">
             <div>
-              <span>Experience</span>
-              <strong>
-                {percentage(breakdown.experience_score)}%
-              </strong>
+              <span>Experience compatibility</span>
+                <strong>
+                  {percentage(breakdown.experience_score)}% · +
+                  {contribution(breakdown.experience_score, weights.experience)} pts
+                </strong>
             </div>
 
             <div className="match-progress">
@@ -1021,10 +1235,11 @@ const rankIcon =
 
           <div className="match-factor">
             <div>
-              <span>Wage</span>
-              <strong>
-                {percentage(breakdown.wage_score)}%
-              </strong>
+              <span>Wage compatibility</span>
+                <strong>
+                  {percentage(breakdown.wage_score)}% · +
+                  {contribution(breakdown.wage_score, weights.wage)} pts
+                </strong>
             </div>
 
             <div className="match-progress">
@@ -1038,10 +1253,11 @@ const rankIcon =
 
           <div className="match-factor">
             <div>
-              <span>Reliability</span>
-              <strong>
-                {percentage(breakdown.reliability_score)}%
-              </strong>
+              <span>Reliability prediction</span>
+                <strong>
+                  {percentage(breakdown.reliability_score)}% · +
+                  {contribution(breakdown.reliability_score, weights.reliability)} pts
+                </strong> 
             </div>
 
             <div className="match-progress">

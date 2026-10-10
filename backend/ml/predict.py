@@ -14,9 +14,24 @@ def _load_model():
         with open(Config.ML_MODEL_PATH,"rb") as f: _model=pickle.load(f)
     return _model
 
+
 def predict_reliability(features: dict) -> float:
-    model=_load_model(); values=[float(features[name]) for name in model["features"]]
-    z=0.0
-    for value,mean,std,weight in zip(values,model["means"],model["stds"],model["weights"]):
-        z += ((value-mean)/(std or 1.0))*weight
-    return max(0.0,min(1.0,_sigmoid(z)))
+    model = _load_model()
+
+    values = [
+        float(features[name])
+        for name in model["features"]
+    ]
+
+    z = model.get("bias", 0.0)
+
+    for value, mean, std, weight in zip(
+        values,
+        model["means"],
+        model["stds"],
+        model["weights"],
+    ):
+        z += ((value - mean) / (std or 1.0)) * weight
+
+    return max(0.0, min(1.0, _sigmoid(z)))
+

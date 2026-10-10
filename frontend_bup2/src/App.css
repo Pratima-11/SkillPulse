@@ -2683,3 +2683,84 @@ button {
   cursor: not-allowed;
   transform: none;
 }
+
+
+
+/* Weighted matching contribution labels */
+.match-factor > div:first-child {
+  gap: 12px;
+}
+
+.match-factor > div:first-child > span {
+  flex: 1;
+  min-width: 0;
+}
+
+.match-factor > div:first-child > strong {
+  text-align: right;
+  white-space: nowrap;
+  font-size: 10px;
+}
+
+@media (max-width: 480px) {
+  .match-factor > div:first-child {
+    align-items: flex-start;
+  }
+
+  .match-factor > div:first-child > strong {
+    white-space: normal;
+    max-width: 55%;
+  }
+
+  
+}/* Weighted matching contribution labels */
+.match-factor > div:first-child {
+  gap: 12px;
+}
+
+.match-factor > div:first-child > span {
+  flex: 1;
+  min-width: 0;
+}
+
+.match-factor > div:first-child > strong {
+  text-align: right;
+  white-space: nowrap;
+  font-size: 10px;
+}
+
+@media (max-width: 480px) {
+  .match-factor > div:first-child {
+    align-items: flex-start;
+  }
+
+  .match-factor > div:first-child > strong {
+    white-space: normal;
+    max-width: 55%;
+  }
+}/* Weighted matching contribution labels */
+.match-factor > div:first-child {
+  gap: 12px;
+}
+
+.match-factor > div:first-child > span {
+  flex: 1;
+  min-width: 0;
+}
+
+.match-factor > div:first-child > strong {
+  text-align: right;
+  white-space: nowrap;
+  font-size: 10px;
+}
+
+@media (max-width: 480px) {
+  .match-factor > div:first-child {
+    align-items: flex-start;
+  }
+
+  .match-factor > div:first-child > strong {
+    white-space: normal;
+    max-width: 55%;
+  }
+}

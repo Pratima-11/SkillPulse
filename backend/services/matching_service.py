@@ -47,25 +47,43 @@ def _wage_score(expected_wage: float, offered_wage: float, tolerance_ratio: floa
     return 1.0 - (excess_ratio / tolerance_ratio)
 
 
+
 def _get_reliability_score(worker: WorkerProfile) -> float:
     """
-    Tries the ML model first (Phase 4); falls back to the rule-based
-    calculation if the trained model file does not exist yet, so this
-    function works correctly in every phase of the project.
+    Use a neutral score for workers with no job history.
+    Otherwise, use ML prediction with a rule-based fallback.
     """
+    jobs_accepted = worker.jobs_accepted or 0
+    jobs_completed = worker.jobs_completed or 0
+    jobs_cancelled = worker.jobs_cancelled or 0
+
+    # No platform history is not evidence of poor reliability.
+    if (
+        jobs_accepted == 0
+        and jobs_completed == 0
+        and jobs_cancelled == 0
+    ):
+        return 0.5
+
     try:
         from ml.predict import predict_reliability
+
         features = {
-            "jobs_completed": worker.jobs_completed,
-            "jobs_accepted": worker.jobs_accepted,
-            "jobs_cancelled": worker.jobs_cancelled,
-            "average_rating": worker.average_rating,
-            "experience_years": worker.experience_years,
+            "jobs_completed": jobs_completed,
+            "jobs_accepted": jobs_accepted,
+            "jobs_cancelled": jobs_cancelled,
+            "average_rating": worker.average_rating or 0,
+            "experience_years": worker.experience_years or 0,
         }
+
         return predict_reliability(features)
+
     except Exception:
-        from services.reliability_service import compute_rule_based_reliability
+        from services.reliability_service import (
+            compute_rule_based_reliability
+        )
         return compute_rule_based_reliability(worker)
+
 
 
 def rank_workers_for_job(job, candidate_workers, weights_path: str):
