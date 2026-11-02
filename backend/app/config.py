@@ -17,7 +17,10 @@ load_dotenv(os.path.join(BASE_DIR, ".env"))
 class Config:
     SECRET_KEY = os.environ.get("SECRET_KEY", "dev-secret-change-me")
     MAX_CONTENT_LENGTH = int(os.environ.get("MAX_CONTENT_LENGTH", 2 * 1024 * 1024))
-    FRONTEND_ORIGIN = os.environ.get("FRONTEND_ORIGIN", "http://localhost:5173")
+    FRONTEND_ORIGIN = os.environ.get(
+    "FRONTEND_ORIGIN",
+    ["http://localhost:5173", "http://localhost:5174"]
+)
 
     SQLALCHEMY_DATABASE_URI = os.environ.get(
     "DATABASE_URL",

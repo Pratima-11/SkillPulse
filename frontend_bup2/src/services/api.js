@@ -165,10 +165,47 @@ export const api = {
       method: "GET",
     }),
 
-  recommendations: (jobId) =>
-  request(`/contractor/jobs/${jobId}/recommended-workers`, {
-    method: "GET",
-  }),  
+    recommendations: (jobId) =>
+    request(`/contractor/jobs/${jobId}/recommended-workers`, {
+      method: "GET",
+    }),
+
+  // Emergency Worker Replacement
+  replacementCandidates: (jobId) =>
+    request(`/contractor/jobs/${jobId}/replacement-candidates`, {
+      method: "GET",
+    }),
+
+  sendReplacementInvitation: (jobId, workerId, matchScore = 0) =>
+    request(`/contractor/jobs/${jobId}/replacement-invitations`, {
+      method: "POST",
+      body: JSON.stringify({
+        worker_id: workerId,
+        match_score: matchScore,
+      }),
+    }),
+
+  workerReplacementInvitations: () =>
+    request("/worker/replacement-invitations", {
+      method: "GET",
+    }),
+
+  acceptReplacementInvitation: (invitationId) =>
+    request(`/worker/replacement-invitations/${invitationId}/accept`, {
+      method: "POST",
+      body: JSON.stringify({}),
+    }),
+
+  rejectReplacementInvitation: (invitationId) =>
+    request(`/worker/replacement-invitations/${invitationId}/reject`, {
+      method: "POST",
+      body: JSON.stringify({}),
+    }),
+
+  applications: (jobId) =>
+    request(`/contractor/jobs/${jobId}/applications`, {
+      method: "GET",
+    }),
 
 applications: (jobId) =>
   request(`/contractor/jobs/${jobId}/applications`, {
@@ -181,6 +218,13 @@ applications: (jobId) =>
       method: "POST",
       body: JSON.stringify(jobData),
     }),  
+
+  // Smart Wage Advisor
+wageAdvisor: (data) =>
+  request("/contractor/wage-advisor", {
+    method: "POST",
+    body: JSON.stringify(data),
+  }),  
 
   updateJobStatus: (jobId, status) =>
   request(`/contractor/jobs/${jobId}/status`, {

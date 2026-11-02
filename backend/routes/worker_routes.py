@@ -10,9 +10,14 @@ GET  /api/worker/applications
 GET  /api/worker/dashboard-stats
 """
 
+
+from models.contractor_profile import ContractorProfile
 from datetime import date
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import get_jwt_identity
+
+from models.replacement_invitation import ReplacementInvitation
+from models.notification import Notification
 
 from app.extensions import db
 from app.config import Config
@@ -26,7 +31,7 @@ from utils.validators import (
     ValidationError, validate_positive_number, validate_latitude,
     validate_longitude, validate_date_not_past, require_fields,
 )
-from services.matching_service import rank_workers_for_job
+from services.matching_service import rank_workers_for_job, get_job_vacancies
 
 worker_bp = Blueprint("worker", __name__, url_prefix="/api/worker")
 
@@ -227,3 +232,198 @@ def dashboard_stats():
         "average_rating": round(profile.average_rating, 2),
         "reliability_score": round(profile.reliability_score, 3),
     }), 200
+
+
+
+@worker_bp.route("/replacement-invitations", methods=["GET"])
+@role_required("worker")
+def my_replacement_invitations():
+    try:
+        profile = _get_current_worker_profile()
+    except ValidationError as e:
+        return jsonify({"error": str(e)}), 404
+
+    invitations = ReplacementInvitation.query.filter_by(
+        worker_id=profile.id,
+        status="PENDING",
+    ).order_by(ReplacementInvitation.created_at.desc()).all()
+
+    result = []
+    for invitation in invitations:
+        item = invitation.to_dict()
+        job = Job.query.get(invitation.job_id)
+        item["job"] = job.to_dict() if job else None
+        result.append(item)
+
+    return jsonify({"invitations": result}), 200
+
+
+@worker_bp.route(
+    "/replacement-invitations/<int:invitation_id>/reject",
+    methods=["POST"],
+)
+@role_required("worker")
+def reject_replacement_invitation(invitation_id):
+    try:
+        profile = _get_current_worker_profile()
+    except ValidationError as e:
+        return jsonify({"error": str(e)}), 404
+
+    invitation = ReplacementInvitation.query.filter_by(
+        id=invitation_id,
+        worker_id=profile.id,
+        status="PENDING",
+    ).first()
+
+    if not invitation:
+        return jsonify({"error": "Pending invitation not found."}), 404
+
+    from datetime import datetime, timezone
+
+    expires_at = invitation.expires_at
+
+    if expires_at and expires_at.tzinfo is None:
+
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+
+    if expires_at and expires_at <= datetime.now(timezone.utc):
+        invitation.status = "EXPIRED"
+        db.session.commit()
+        return jsonify({"error": "This invitation has expired."}), 410
+
+    invitation.status = "REJECTED"
+    invitation.responded_at = datetime.now(timezone.utc)
+
+    contractor = db.session.get(ContractorProfile, invitation.contractor_id)
+    if contractor:
+        db.session.add(Notification(
+            user_id=contractor.user_id,
+            message=f"Worker #{profile.id} rejected the replacement invitation for job #{invitation.job_id}.",
+            notif_type="REPLACEMENT_RESPONSE",
+        ))
+
+    db.session.commit()
+    return jsonify({
+        "message": "Replacement invitation rejected.",
+        "invitation": invitation.to_dict(),
+    }), 200
+
+
+
+@worker_bp.route(
+    "/replacement-invitations/<int:invitation_id>/accept",
+    methods=["POST"],
+)
+@role_required("worker")
+def accept_replacement_invitation(invitation_id):
+    from datetime import datetime, timezone
+    from sqlalchemy import select
+    from sqlalchemy.exc import SQLAlchemyError
+
+    try:
+        profile = _get_current_worker_profile()
+    except ValidationError as e:
+        return jsonify({"error": str(e)}), 404
+
+    try:
+        # Lock the job row so concurrent acceptances serialize on databases
+        # that support SELECT ... FOR UPDATE (including MySQL/InnoDB).
+        invitation = ReplacementInvitation.query.filter_by(
+            id=invitation_id,
+            worker_id=profile.id,
+            status="PENDING",
+        ).first()
+
+        if not invitation:
+            return jsonify({"error": "Pending invitation not found."}), 404
+
+        job = db.session.execute(
+            select(Job)
+            .where(Job.id == invitation.job_id)
+            .with_for_update()
+        ).scalar_one_or_none()
+
+        if not job or job.status not in (
+            "WORKER_SELECTED",
+            "CONFIRMED",
+            "IN_PROGRESS",
+        ):
+            db.session.rollback()
+            return jsonify({
+                "error": "This job is not eligible for replacement acceptance."
+            }), 409
+
+        # Reload and lock the invitation too.
+        locked_invitation = db.session.execute(
+            select(ReplacementInvitation)
+            .where(
+                ReplacementInvitation.id == invitation_id,
+                ReplacementInvitation.worker_id == profile.id,
+                ReplacementInvitation.status == "PENDING",
+            )
+            .with_for_update()
+        ).scalar_one_or_none()
+
+        if not locked_invitation:
+            db.session.rollback()
+            return jsonify({"error": "This invitation has already been handled."}), 409
+
+        expires_at = locked_invitation.expires_at
+
+        if expires_at and expires_at.tzinfo is None:
+
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+
+        if expires_at and expires_at <= datetime.now(timezone.utc):
+            locked_invitation.status = "EXPIRED"
+            locked_invitation.responded_at = datetime.now(timezone.utc)
+            db.session.commit()
+            return jsonify({"error": "This invitation has expired."}), 410
+
+        vacancies = get_job_vacancies(job)
+        if vacancies <= 0:
+            db.session.rollback()
+            return jsonify({"error": "No replacement vacancies remain."}), 409
+
+        existing_application = JobApplication.query.filter_by(
+            job_id=job.id,
+            worker_id=profile.id,
+        ).first()
+
+        if existing_application:
+            db.session.rollback()
+            return jsonify({
+                "error": "You already have an application for this job."
+            }), 409
+
+        locked_invitation.status = "ACCEPTED"
+        locked_invitation.responded_at = datetime.now(timezone.utc)
+
+        application = JobApplication(
+            job_id=job.id,
+            worker_id=profile.id,
+            match_score=locked_invitation.match_score or 0.0,
+            score_breakdown=locked_invitation.score_breakdown,
+            status="SELECTED",
+        )
+        db.session.add(application)
+        profile.jobs_accepted += 1
+        contractor = db.session.get(ContractorProfile, locked_invitation.contractor_id)
+        if contractor:
+            db.session.add(Notification(
+                user_id=contractor.user_id,
+                                               message=f"Worker #{profile.id} accepted the replacement invitation for job #{job.id}.",
+                notif_type="REPLACEMENT_RESPONSE",
+            ))
+
+        db.session.commit()
+
+        return jsonify({
+            "message": "Replacement invitation accepted.",
+            "invitation": locked_invitation.to_dict(),
+            "application": application.to_dict(),
+        }), 200
+
+    except SQLAlchemyError:
+        db.session.rollback()
+        return jsonify({"error": "Could not accept invitation. Please retry."}), 409

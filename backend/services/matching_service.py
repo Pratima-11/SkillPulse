@@ -19,6 +19,24 @@ from models.availability import Availability
 from models.job_application import JobApplication
 from services.distance_service import haversine_distance_km, location_score
 
+def get_job_vacancies(job):
+    """
+    Return the number of unfilled worker positions for an active job.
+
+    Only SELECTED applications count as occupied positions.
+    Cancelled and completed jobs cannot receive replacements.
+    """
+    if job.status in ("CANCELLED", "COMPLETED"):
+        return 0
+
+    selected_count = JobApplication.query.filter_by(
+        job_id=job.id,
+        status="SELECTED",
+    ).count()
+
+    return max(0, job.workers_required - selected_count)
+
+
 _weights_cache = None
 
 

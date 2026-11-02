@@ -26,5 +26,8 @@ __all__ = [
     "Availability",
     "Rating",
     "Notification",
-    "WorkerPhoto"
+    "WorkerPhoto",
+    "ReplacementInvitation"
 ]
+
+from models.replacement_invitation import ReplacementInvitation

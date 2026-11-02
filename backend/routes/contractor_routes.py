@@ -15,6 +15,7 @@ GET  /api/contractor/dashboard-stats
 
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import get_jwt_identity
+from datetime import datetime, timedelta, timezone
 
 from app.extensions import db
 from app.config import Config
@@ -30,8 +31,10 @@ from utils.validators import (
     ValidationError, validate_positive_number, validate_latitude,
     validate_longitude, validate_date_not_past, validate_rating_value, require_fields,
 )
-from services.matching_service import rank_workers_for_job
 from services.reliability_service import update_worker_reliability
+from models.replacement_invitation import ReplacementInvitation
+from services.matching_service import rank_workers_for_job, get_job_vacancies
+from services.wage_advisor_service import get_wage_recommendation
 
 contractor_bp = Blueprint("contractor", __name__, url_prefix="/api/contractor")
 
@@ -219,6 +222,7 @@ def recommended_workers(job_id):
     return jsonify({"workers": result}), 200
 
 
+
 @contractor_bp.route("/applications/<int:application_id>/select", methods=["POST"])
 @role_required("contractor")
 def select_worker(application_id):
@@ -227,22 +231,45 @@ def select_worker(application_id):
     except ValidationError as e:
         return jsonify({"error": str(e)}), 404
 
+        from sqlalchemy import select
+
     application = JobApplication.query.get(application_id)
     if not application or application.job.contractor_id != profile.id:
         return jsonify({"error": "Application not found."}), 404
 
-    if application.status != "PENDING":
-        return jsonify({"error": f"Cannot select an application in status {application.status}."}), 400
+    job = db.session.execute(
+        select(Job)
+        .where(Job.id == application.job_id)
+        .with_for_update()
+    ).scalar_one_or_none()
 
-    selected_count = JobApplication.query.filter_by(job_id=application.job_id, status="SELECTED").count()
+    if not job or job.contractor_id != profile.id:
+        return jsonify({"error": "Job not found."}), 404
+
+    # Refresh the application after acquiring the job lock.
+    db.session.refresh(application)
+
+    if application.status != "PENDING":
+        return jsonify({
+            "error": f"Cannot select an application in status {application.status}."
+        }), 400
+
+    selected_count = JobApplication.query.filter_by(
+        job_id=application.job_id,
+        status="SELECTED",
+    ).count()
+
     if selected_count >= application.job.workers_required:
-        return jsonify({"error": "This job has already reached its worker requirement."}), 400
+        return jsonify({
+            "error": "This job has already reached its worker requirement."
+        }), 400
 
     application.status = "SELECTED"
     application.worker.jobs_accepted += 1
 
-    if application.job.status in ("MATCHING",):
+    if application.job.status == "MATCHING":
         application.job.status = "APPLICANTS"
+
     if application.job.can_transition_to("WORKER_SELECTED"):
         application.job.status = "WORKER_SELECTED"
 
@@ -253,8 +280,253 @@ def select_worker(application_id):
     )
     db.session.add(notification)
     db.session.commit()
+
     return jsonify({"application": application.to_dict()}), 200
 
+
+
+@contractor_bp.route(
+    "/jobs/<int:job_id>/replacement-candidates",
+    methods=["GET"],
+)
+@role_required("contractor")
+def replacement_candidates(job_id):
+    try:
+        profile = _get_current_contractor_profile()
+    except ValidationError as e:
+        return jsonify({"error": str(e)}), 404
+
+    job = Job.query.filter_by(
+        id=job_id,
+        contractor_id=profile.id,
+    ).first()
+
+    if not job:
+        return jsonify({"error": "Job not found or does not belong to you."}), 404
+
+    vacancies = get_job_vacancies(job)
+
+    if vacancies == 0:
+        return jsonify({
+            "job_id": job.id,
+            "vacancies": 0,
+            "workers": [],
+            "message": "No replacement vacancies are available.",
+        }), 200
+
+    if job.status not in (
+        "WORKER_SELECTED",
+        "CONFIRMED",
+        "IN_PROGRESS",
+    ):
+        return jsonify({
+            "job_id": job.id,
+            "vacancies": vacancies,
+            "workers": [],
+            "message": "This job is not currently eligible for replacement matching.",
+        }), 200
+
+    candidate_workers = WorkerProfile.query.filter_by(
+        verification_status="verified",
+    ).all()
+
+    ranked = rank_workers_for_job(
+        job,
+        candidate_workers,
+        Config.MATCHING_WEIGHTS_PATH,
+    )
+
+    selected_worker_ids = {
+        application.worker_id
+        for application in JobApplication.query.filter_by(
+            job_id=job.id,
+            status="SELECTED",
+        ).all()
+    }
+
+    result = []
+
+    for entry in ranked:
+        worker = entry["worker"]
+
+        if worker.id in selected_worker_ids:
+            continue
+
+        worker_dict = worker.to_dict()
+        worker_dict["match_score"] = entry["match_score"]
+        worker_dict["breakdown"] = entry["breakdown"]
+        worker_dict["reasons"] = entry["reasons"]
+        result.append(worker_dict)
+
+    return jsonify({
+        "job_id": job.id,
+        "vacancies": vacancies,
+        "workers": result,
+    }), 200
+
+
+@contractor_bp.route(
+    "/jobs/<int:job_id>/replacement-invitations",
+    methods=["POST"],
+)
+@role_required("contractor")
+def invite_replacement_worker(job_id):
+    data = request.get_json(silent=True) or {}
+
+    try:
+        profile = _get_current_contractor_profile()
+    except ValidationError as e:
+        return jsonify({"error": str(e)}), 404
+
+    worker_id = data.get("worker_id")
+    if not isinstance(worker_id, int) or isinstance(worker_id, bool):
+        return jsonify({"error": "A valid worker_id is required."}), 400
+
+    job = Job.query.filter_by(
+        id=job_id,
+        contractor_id=profile.id,
+    ).first()
+
+    if not job:
+        return jsonify({"error": "Job not found or does not belong to you."}), 404
+
+    vacancies = get_job_vacancies(job)
+    if vacancies <= 0:
+        return jsonify({"error": "No replacement vacancies are available."}), 409
+
+    if job.status not in ("WORKER_SELECTED", "CONFIRMED", "IN_PROGRESS"):
+        return jsonify({"error": "This job is not eligible for replacement invitations."}), 409
+
+    worker = WorkerProfile.query.filter_by(
+        id=worker_id,
+        verification_status="verified",
+    ).first()
+
+    if not worker:
+        return jsonify({"error": "Verified worker not found."}), 404
+
+    # Only invite workers returned by the existing eligibility matcher.
+    ranked = rank_workers_for_job(
+        job,
+        [worker],
+        Config.MATCHING_WEIGHTS_PATH,
+    )
+
+    if not ranked:
+        return jsonify({
+            "error": "This worker does not meet the job's matching requirements."
+        }), 400
+
+    existing_application = JobApplication.query.filter_by(
+        job_id=job.id,
+        worker_id=worker.id,
+    ).first()
+
+    if existing_application:
+        return jsonify({
+            "error": "This worker already has an application for this job."
+        }), 409
+
+    existing_invitation = ReplacementInvitation.query.filter(
+        ReplacementInvitation.job_id == job.id,
+        ReplacementInvitation.worker_id == worker.id,
+        ReplacementInvitation.status.in_(["PENDING", "ACCEPTED"]),
+    ).first()
+
+    if existing_invitation:
+        return jsonify({"error": "An active invitation already exists."}), 409
+
+    entry = ranked[0]
+    invitation = ReplacementInvitation(
+    job_id=job.id,
+    worker_id=worker.id,
+    contractor_id=profile.id,
+    status="PENDING",
+    match_score=entry["match_score"],
+    score_breakdown=entry["breakdown"],
+    expires_at=datetime.now(timezone.utc) + timedelta(hours=24),
+)
+
+    db.session.add(invitation)
+    db.session.add(Notification(
+        user_id=worker.user_id,
+        message=f"You have been invited as a replacement for job #{job.id}.",
+        notif_type="REPLACEMENT_INVITATION",
+    ))
+
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        return jsonify({"error": "Unable to create invitation. Please retry."}), 409
+
+    return jsonify({"invitation": invitation.to_dict()}), 201
+
+
+def select_worker(application_id):
+    from sqlalchemy import select
+
+    try:
+        profile = _get_current_contractor_profile()
+    except ValidationError as e:
+        return jsonify({"error": str(e)}), 404
+
+    application = JobApplication.query.get(application_id)
+    if not application or application.job.contractor_id != profile.id:
+        return jsonify({"error": "Application not found."}), 404
+
+    try:
+        job = db.session.execute(
+            select(Job)
+            .where(Job.id == application.job_id)
+            .with_for_update()
+        ).scalar_one_or_none()
+
+        if not job or job.contractor_id != profile.id:
+            db.session.rollback()
+            return jsonify({"error": "Job not found."}), 404
+
+        # Refresh the application after acquiring the job lock.
+        db.session.refresh(application)
+
+        if application.status != "PENDING":
+            db.session.rollback()
+            return jsonify({
+                "error": f"Cannot select an application in status {application.status}."
+            }), 400
+
+        selected_count = JobApplication.query.filter_by(
+            job_id=job.id,
+            status="SELECTED",
+        ).count()
+
+        if selected_count >= job.workers_required:
+            db.session.rollback()
+            return jsonify({
+                "error": "This job has already reached its worker requirement."
+            }), 400
+
+        application.status = "SELECTED"
+        application.worker.jobs_accepted += 1
+
+        if job.status == "MATCHING":
+            job.status = "APPLICANTS"
+
+        if job.can_transition_to("WORKER_SELECTED"):
+            job.status = "WORKER_SELECTED"
+
+        db.session.add(Notification(
+            user_id=application.worker.user_id,
+            message=f"You have been selected for job #{job.id}.",
+            notif_type="SELECTED",
+        ))
+
+        db.session.commit()
+        return jsonify({"application": application.to_dict()}), 200
+
+    except Exception:
+        db.session.rollback()
+        raise
 
 @contractor_bp.route("/applications/<int:application_id>/reject", methods=["POST"])
 @role_required("contractor")
@@ -281,6 +553,7 @@ def reject_worker(application_id):
     return jsonify({"application": application.to_dict()}), 200
 
 
+
 @contractor_bp.route("/jobs/<int:job_id>/status", methods=["POST"])
 @role_required("contractor")
 def update_job_status(job_id):
@@ -296,7 +569,11 @@ def update_job_status(job_id):
     except ValidationError as e:
         return jsonify({"error": str(e)}), 404
 
-    job = Job.query.filter_by(id=job_id, contractor_id=profile.id).first()
+    job = Job.query.filter_by(
+        id=job_id,
+        contractor_id=profile.id
+    ).first()
+
     if not job:
         return jsonify({"error": "Job not found."}), 404
 
@@ -311,21 +588,49 @@ def update_job_status(job_id):
     job.status = new_status
 
     if new_status == "COMPLETED":
-        selected_apps = JobApplication.query.filter_by(job_id=job.id, status="SELECTED").all()
+        selected_apps = JobApplication.query.filter_by(
+            job_id=job.id,
+            status="SELECTED"
+        ).all()
+
         for app in selected_apps:
             app.status = "COMPLETED"
             app.worker.jobs_completed += 1
             update_worker_reliability(app.worker)
+
+        # No replacement invitations should remain pending
+        # once the job has been completed.
+        pending_invitations = ReplacementInvitation.query.filter_by(
+            job_id=job.id,
+            status="PENDING"
+        ).all()
+
+        for invitation in pending_invitations:
+            invitation.status = "CANCELLED"
+            invitation.responded_at = datetime.now(timezone.utc)
+
     elif new_status == "CANCELLED":
         active_apps = JobApplication.query.filter(
             JobApplication.job_id == job.id,
             JobApplication.status.in_(["PENDING", "SELECTED"]),
         ).all()
+
         for app in active_apps:
             if app.status == "SELECTED":
                 app.worker.jobs_cancelled += 1
                 update_worker_reliability(app.worker)
+
             app.status = "CANCELLED"
+
+        # Cancel pending replacement invitations for this job.
+        pending_invitations = ReplacementInvitation.query.filter_by(
+            job_id=job.id,
+            status="PENDING"
+        ).all()
+
+        for invitation in pending_invitations:
+            invitation.status = "CANCELLED"
+            invitation.responded_at = datetime.now(timezone.utc)
 
     db.session.commit()
     return jsonify({"job": job.to_dict()}), 200
@@ -405,3 +710,29 @@ def dashboard_stats():
         "completed_jobs": completed,
         "workers_selected": workers_selected,
     }), 200
+
+
+
+
+@contractor_bp.route("/wage-advisor", methods=["POST"])
+@role_required("contractor")
+def contractor_wage_advisor():
+    data = request.get_json(silent=True) or {}
+
+    result = get_wage_recommendation(
+        skill_name=data.get("skill_name"),
+        area_text=data.get("area_text"),
+        experience_years=data.get("experience_years"),
+        working_hours=data.get("working_hours"),
+        offered_wage=data.get("offered_wage"),
+    )
+
+    if not result.get("success"):
+        error_message = result.get("error", "Unable to estimate wages.")
+        status_code = (
+            404 if error_message.endswith("was not found.")
+            else 400
+        )
+        return jsonify(result), status_code
+
+    return jsonify(result), 200

@@ -99,7 +99,7 @@ useEffect(() => {
           <p className="hero-description">SkillPulse connects construction contractors with verified skilled daily-wage workers based on skill, location, availability, experience and reliability.</p>
           <div className="hero-buttons"><button className="primary-btn" onClick={() => setAuthMode("register")}>Find Skilled Workers <span>→</span></button><button className="secondary-btn" onClick={() => scrollTo("jobs")}>Find Jobs</button></div>
           <div className="hero-trust"><div className="trust-avatars"><span>👷</span><span>👨‍🔧</span><span>👨‍🎨</span><span>+</span></div><div><strong>Built for real-world work</strong><small>Real profiles, real availability, real matching.</small></div></div>
-        </div><div className="hero-visual"><div className="hero-circle"></div><div className="worker-illustration"><div className="worker-head"></div><div className="worker-hat"></div><div className="worker-body"><div className="worker-logo">SP</div></div><div className="worker-arm left"></div><div className="worker-arm right"></div></div><div className="floating-card match-card"><div className="check-circle">✓</div><div><small>AI-assisted match</small><strong>Ranked worker</strong></div></div><div className="floating-card distance-card"><span className="location-dot">●</span><div><small>Location-aware</small><strong>Distance scored</strong></div></div><div className="floating-card available-card"><span>●</span> Availability checked</div></div></div></section>
+        </div><div className="hero-visual"><div className="hero-circle"></div><div className="worker-illustration"><div className="worker-head"></div><div className="worker-hat"></div><div className="worker-body"><div className="worker-logo">SP</div></div><div className="worker-arm left"></div><div className="worker-arm right"></div></div><div className="floating-card match-card"><div className="check-circle">✓</div><div><small>AI-assisted match</small><strong>Ranked worker</strong></div></div><div className="floating-card distance-card"><span className="location-dot">â—</span><div><small>Location-aware</small><strong>Distance scored</strong></div></div><div className="floating-card available-card"><span>â—</span> Availability checked</div></div></div></section>
 
         <section className="search-section"><form className="search-box" onSubmit={runSearch}><div className="search-field"><span className="field-icon">⌕</span><div><label>WHAT DO YOU NEED?</label><input value={search.skill} onChange={e => setSearch({ ...search, skill: e.target.value })} placeholder="Painter, Mason, Plumber..." /></div></div><div className="search-divider"></div><div className="search-field"><span className="field-icon">⌖</span><div><label>LOCATION</label><input value={search.area} onChange={e => setSearch({ ...search, area: e.target.value })} placeholder="Bengaluru area" /></div></div><div className="search-divider"></div><div className="search-field"><span className="field-icon">◷</span><div><label>WHEN?</label><strong>Upcoming jobs</strong></div></div><button className="search-btn">Search <span>→</span></button></form></section>
 
@@ -176,6 +176,10 @@ function Dashboard({ user, onLogout }) {
 const [stats, setStats] = useState({});
 const [items, setItems] = useState([]);
 const [applications, setApplications] = useState([]); 
+// Smart Wage Advisor state
+const [wageAdvice, setWageAdvice] = useState(null);
+const [wageAdviceLoading, setWageAdviceLoading] = useState(false);
+const [wageAdviceError, setWageAdviceError] = useState("");
 const [notifications, setNotifications] = useState([]); const [profile, setProfile] = useState(null); const [selectedJob, setSelectedJob] = useState(null); const [recommendations, setRecommendations] = useState([]); const [message, setMessage] = useState(""); const [loading, setLoading] = useState(true);
   
   const worker = user.role === "worker";
@@ -611,6 +615,49 @@ function WorkerPanel({ items, profile, applications, notifications, action }) {
   const [photoPreview, setPhotoPreview] = useState("");
   const [photoError, setPhotoError] = useState("");
 
+
+    const [replacementInvitations, setReplacementInvitations] = useState([]);
+  const [replacementLoading, setReplacementLoading] = useState(false);
+
+  const loadReplacementInvitations = async () => {
+    setReplacementLoading(true);
+    try {
+      const response = await api.workerReplacementInvitations();
+      setReplacementInvitations(response.invitations || []);
+    } catch (error) {
+      console.error("Failed to load replacement invitations:", error);
+    } finally {
+      setReplacementLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadReplacementInvitations();
+  }, []);
+
+  const respondToReplacement = async (invitationId, decision) => {
+    try {
+      if (decision === "accept") {
+        await api.acceptReplacementInvitation(invitationId);
+      } else {
+        await api.rejectReplacementInvitation(invitationId);
+      }
+
+      await loadReplacementInvitations();
+      await action(
+        async () => {},
+        decision === "accept"
+          ? "Replacement job accepted"
+          : "Replacement invitation rejected"
+      );
+    } catch (error) {
+      alert(error.message || "Unable to process the invitation.");
+      await loadReplacementInvitations();
+    }
+  };
+
+
+
   const today = new Date().toISOString().slice(0, 10);
 
   const saveProfile = () =>
@@ -718,6 +765,81 @@ const uploadPhoto = async () => {
       </section>
 
       <section className="dashboard-panel worker-settings-panel">
+        <section className="dashboard-panel">
+        <div className="panel-head">
+          <div>
+            <div className="section-label">EMERGENCY WORK</div>
+            <h2>Replacement Invitations</h2>
+          </div>
+          <button
+            className="dark-btn small-btn"
+            onClick={loadReplacementInvitations}
+            disabled={replacementLoading}
+          >
+            {replacementLoading ? "Loading..." : "Refresh"}
+          </button>
+        </div>
+
+        {replacementLoading && replacementInvitations.length === 0 ? (
+          <p>Loading invitations...</p>
+        ) : replacementInvitations.filter(
+            (invitation) => invitation.status === "PENDING"
+          ).length === 0 ? (
+          <p className="panel-description">
+            You have no pending replacement invitations.
+          </p>
+        ) : (
+          <div className="worker-job-list">
+            {replacementInvitations
+              .filter((invitation) => invitation.status === "PENDING")
+              .map((invitation) => (
+                <article
+                  className="worker-job-card"
+                  key={invitation.id}
+                >
+                  <div className="worker-job-main">
+                    <div className="worker-job-icon">!</div>
+                    <div className="worker-job-info">
+                      <h3>
+                        Emergency replacement — Job #{invitation.job_id}
+                      </h3>
+                      <p>
+                        A contractor has invited you to replace a worker.
+                      </p>
+                      <div className="worker-job-meta">
+                        <span>
+                          Match score:{" "}
+                          {Math.round(Number(invitation.match_score || 0))}%
+                        </span>
+                        <span>Status: {invitation.status}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="worker-job-actions">
+                    <button
+                      className="dark-btn small-btn"
+                      onClick={() =>
+                        respondToReplacement(invitation.id, "accept")
+                      }
+                    >
+                      Accept
+                    </button>
+
+                    <button
+                      className="dark-btn small-btn"
+                      onClick={() =>
+                        respondToReplacement(invitation.id, "reject")
+                      }
+                    >
+                      Reject
+                    </button>
+                  </div>
+                </article>
+              ))}
+          </div>
+        )}
+      </section>
         <div className="section-label">PROFILE SETTINGS</div>
         <h2>Keep your profile current.</h2>
         <p className="panel-description">Better profile data gives the matching engine more information to rank suitable work.</p>
@@ -951,6 +1073,44 @@ function ContractorPanel({
   });
 
   const [applications, setApplications] = useState([]);
+  // Smart Wage Advisor state
+  const [wageAdvice, setWageAdvice] = useState(null);
+  const [wageAdviceLoading, setWageAdviceLoading] = useState(false);
+  const [wageAdviceError, setWageAdviceError] = useState("");
+
+  const [replacementCandidates, setReplacementCandidates] = useState([]);
+  const [replacementLoading, setReplacementLoading] = useState(false);
+  const [replacementMessage, setReplacementMessage] = useState("");
+
+  const loadReplacementCandidates = async () => {
+    if (!selectedJob?.id) return;
+
+    setReplacementLoading(true);
+    setReplacementMessage("");
+
+    try {
+      const response = await api.replacementCandidates(selectedJob.id);
+      setReplacementCandidates(response.workers || []);
+      if (response.message) {
+        setReplacementMessage(response.message);
+      }
+    } catch (error) {
+      setReplacementCandidates([]);
+      setReplacementMessage(
+        error.message || "Could not load replacement candidates."
+      );
+    } finally {
+      setReplacementLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    setReplacementCandidates([]);
+    setReplacementMessage("");
+    if (selectedJob?.id) {
+      loadReplacementCandidates();
+    }
+  }, [selectedJob?.id]);
 
   const [ratingApplication, setRatingApplication] = useState(null);
   const [ratingValue, setRatingValue] = useState(0);
@@ -961,6 +1121,31 @@ function ContractorPanel({
       ...form,
       [k]: v,
     });
+
+const getWageAdvice = async () => {
+  setWageAdviceLoading(true);
+  setWageAdviceError("");
+  setWageAdvice(null);
+
+  try {
+    const result = await api.wageAdvisor({
+      skill_name: form.skill_name,
+      area_text: form.area_text,
+      experience_years: Number(form.min_experience),
+      working_hours: form.working_hours,
+      offered_wage: Number(form.wage),
+    });
+
+    setWageAdvice(result);
+  } catch (error) {
+    setWageAdviceError(
+      error.message || "Could not calculate the recommended wage."
+    );
+  } finally {
+    setWageAdviceLoading(false);
+  }
+};
+
 
   const loadApplications = async () => {
     if (!selectedJob) {
@@ -1024,7 +1209,7 @@ function ContractorPanel({
       </p>
     </div>
 
-    <div className="contractor-create-icon">＋</div>
+    <div className="contractor-create-icon">+</div>
   </div>
 
   <div className="contractor-form">
@@ -1141,6 +1326,63 @@ function ContractorPanel({
         placeholder="Describe the work, site requirements or anything the worker should know..."
       />
     </div>
+          
+<div className="contractor-field contractor-field-wide">
+  <button
+    type="button"
+    className="contractor-post-btn"
+    disabled={wageAdviceLoading}
+    onClick={getWageAdvice}
+  >
+    {wageAdviceLoading ? "Estimating wage..." : "Get Smart Wage Advice"}
+  </button>
+
+  {wageAdviceError && (
+    <p role="alert" className="text-danger mt-2">
+      {wageAdviceError}
+    </p>
+  )}
+
+  {wageAdvice?.success && (
+    <div className="mt-3 p-3 border rounded">
+      <h4>Recommended Daily Wage</h4>
+
+      {wageAdvice.recommended_range ? (
+        <>
+          <p>
+            <strong>
+              ₹{wageAdvice.recommended_range.minimum} – ₹
+              {wageAdvice.recommended_range.maximum}
+            </strong>
+          </p>
+
+          <p>
+            Median: ₹{wageAdvice.recommended_range.median}
+          </p>
+        </>
+      ) : (
+        <p>Not enough data to recommend a reliable wage range.</p>
+      )}
+
+      <p>
+        <strong>Confidence:</strong> {wageAdvice.confidence}
+      </p>
+
+      <p>{wageAdvice.explanation}</p>
+
+      {wageAdvice.offered_wage_classification && (
+        <p>
+          <strong>Your offered wage:</strong>{" "}
+          {wageAdvice.offered_wage_classification.replaceAll("_", " ")}
+        </p>
+      )}
+
+      <small className="text-muted">
+        {wageAdvice.disclaimer}
+      </small>
+    </div>
+  )}
+</div>
 
   </div>
 
@@ -1322,7 +1564,114 @@ function ContractorPanel({
           </div>
         )}
 
-        {recommendations.map((w, index) => {
+        <div className="settings-divider" />
+
+        <div className="section-label">EMERGENCY WORKER REPLACEMENT</div>
+        <h2>Find a replacement worker</h2>
+        <p className="panel-description">
+          Select an eligible job above to find available workers who can fill
+          vacant positions.
+        </p>
+
+        {selectedJob && (
+          <button
+            className="secondary-btn small-btn"
+            onClick={loadReplacementCandidates}
+            disabled={replacementLoading}
+          >
+            {replacementLoading ? "Loading..." : "Refresh replacement candidates"}
+          </button>
+        )}
+
+        {replacementMessage && (
+          <div className="inline-error" style={{ marginTop: "12px" }}>
+            {replacementMessage}
+          </div>
+        )}
+
+        {!selectedJob ? (
+          <p className="panel-description">
+            Select a job to check replacement eligibility.
+          </p>
+        ) : replacementLoading ? (
+          <p>Finding eligible replacement workers...</p>
+        ) : replacementCandidates.length === 0 ? (
+          <p className="panel-description">
+            No eligible replacement candidates are currently available.
+          </p>
+        ) : (
+          <div className="worker-job-list">
+            {replacementCandidates.map((candidate) => {
+              const workerId =
+                candidate.worker_id ?? candidate.id ?? candidate.worker?.id;
+
+              const workerName =
+                candidate.full_name ??
+                candidate.worker_name ??
+                candidate.worker?.full_name ??
+                `Worker #${workerId}`;
+
+              const score = Number(candidate.match_score || 0);
+
+              return (
+                <article className="worker-job-card" key={workerId}>
+                  <div className="worker-job-main">
+                    <div className="worker-job-icon">👷</div>
+                    <div className="worker-job-info">
+                      <h3>{workerName}</h3>
+                      <div className="worker-job-meta">
+                        <span>
+                          Match score: {Math.round(score)}%
+                        </span>
+                        {candidate.experience_years !== undefined && (
+                          <span>
+                            Experience: {candidate.experience_years} years
+                          </span>
+                        )}
+                        {candidate.expected_wage !== undefined && (
+                          <span>
+                            Wage: ₹
+                            {Number(candidate.expected_wage).toLocaleString(
+                              "en-IN"
+                            )}
+                            /day
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <button
+                    className="dark-btn small-btn"
+                    disabled={!workerId}
+                    onClick={async () => {
+                      try {
+                        await api.sendReplacementInvitation(
+                          selectedJob.id,
+                          workerId,
+                          score
+                        );
+                        setReplacementMessage(
+                          `Invitation sent to ${workerName}.`
+                        );
+                        await loadReplacementCandidates();
+                      } catch (error) {
+                        setReplacementMessage(
+                          error.message || "Could not send invitation."
+                        );
+                      }
+                    }}
+                  >
+                    Send Invitation
+                  </button>
+                </article>
+              );
+            })}
+          </div>
+        )}
+
+        <div className="settings-divider" />
+{recommendations.map((w, index) => {
           const score = Number(w.match_score || 0);
 
 const rankLabel =
