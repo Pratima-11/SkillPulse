@@ -797,7 +797,7 @@ const uploadPhoto = async () => {
       </section>
 
       <section className="dashboard-panel worker-settings-panel">
-        <section className="dashboard-panel">
+        <section className="dashboard-panel replacement-invitations-panel">
         <div className="panel-head">
           <div>
             <div className="section-label">EMERGENCY WORK</div>
@@ -826,7 +826,7 @@ const uploadPhoto = async () => {
               .filter((invitation) => invitation.status === "PENDING")
               .map((invitation) => (
                 <article
-                  className="worker-job-card"
+                  className="worker-job-card replacement-invitation-card"
                   key={invitation.id}
                 >
                   <div className="worker-job-main">
@@ -848,7 +848,7 @@ const uploadPhoto = async () => {
                     </div>
                   </div>
 
-                  <div className="worker-job-actions">
+                  <div className="worker-job-actions replacement-invitation-actions">
                     <button
                       className="dark-btn small-btn"
                       onClick={() =>
@@ -1567,18 +1567,27 @@ const getWageAdvice = async () => {
   )}
 
   {j.status === "CONFIRMED" && (
-  <button
-    className="contractor-confirm-btn"
-    onClick={() =>
-      action(
-        () => api.updateJobStatus(j.id, "IN_PROGRESS"),
-        "Job marked as in progress"
-      )
-    }
-  >
-    Start job →
-  </button>
-)}
+    <>
+      <button
+        className="secondary-btn small-btn"
+        onClick={() => onSelect(j)}
+      >
+        Manage replacements →
+      </button>
+      <button
+        className="contractor-confirm-btn"
+        onClick={() =>
+          action(
+            () => api.updateJobStatus(j.id, "IN_PROGRESS"),
+            "Job marked as in progress"
+          )
+        }
+      >
+        Start job →
+      </button>
+    </>
+  )
+}
 
 {j.status === "IN_PROGRESS" && (
   <button
@@ -2019,7 +2028,33 @@ const contribution = (score, weight) =>
             </>
           )}
           {application.application_status === "SELECTED" && (
-            <span className="contractor-selected-badge">✓ Selected</span>
+            <>
+              <span className="contractor-selected-badge">✓ Selected</span>
+              <button
+                type="button"
+                className="contractor-reject-btn"
+                onClick={async () => {
+                  const confirmed = window.confirm(
+                    `Report ${application.full_name} as unavailable for this job? This will release the worker position and allow you to find a replacement.`
+                  );
+                  if (!confirmed) return;
+
+                  await action(
+                    async () => {
+                      await api.reportWorkerUnavailable(application.application_id);
+                      await loadApplications();
+                      await loadReplacementCandidates();
+                    },
+                    "Worker marked unavailable. You can now invite a replacement."
+                  );
+                }}
+              >
+                Report unavailable
+              </button>
+            </>
+          )}
+          {application.application_status === "CANCELLED" && (
+            <span className="contractor-rejected-badge">Position released</span>
           )}
           {application.application_status === "REJECTED" && (
             <span className="contractor-rejected-badge">Rejected</span>

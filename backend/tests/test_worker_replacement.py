@@ -295,3 +295,138 @@ def test_contractor_cannot_invite_worker_with_existing_application(app, setup_da
 
     assert response.status_code == 409, response.get_json()
 
+
+
+def test_worker_can_accept_replacement_with_existing_pending_application(app, setup_data):
+    data = setup_data
+    pending_application = JobApplication(
+        job_id=data["job"].id,
+        worker_id=data["worker"].id,
+        status="PENDING",
+        match_score=0.42,
+        score_breakdown={"location_score": 0.5},
+    )
+    db.session.add(pending_application)
+    db.session.commit()
+
+    response = app.test_client().post(
+        f"/api/worker/replacement-invitations/{data['invitation'].id}/accept",
+        headers=worker_headers(data["worker_user"]),
+    )
+
+    assert response.status_code == 200, response.get_json()
+    db.session.refresh(pending_application)
+    assert pending_application.status == "SELECTED"
+    assert pending_application.match_score == data["invitation"].match_score
+    assert JobApplication.query.filter_by(
+        job_id=data["job"].id,
+        worker_id=data["worker"].id,
+    ).count() == 1
+
+
+def test_contractor_can_report_selected_worker_unavailable(app, setup_data):
+    data = setup_data
+    selected_application = JobApplication(
+        job_id=data["job"].id,
+        worker_id=data["worker"].id,
+        status="SELECTED",
+        match_score=0.75,
+        score_breakdown={},
+    )
+    db.session.add(selected_application)
+    db.session.commit()
+
+    response = app.test_client().post(
+        f"/api/contractor/applications/{selected_application.id}/report-unavailable",
+        headers=contractor_headers(data["contractor_user"]),
+        json={},
+    )
+
+    assert response.status_code == 200, response.get_json()
+    db.session.refresh(selected_application)
+    assert selected_application.status == "CANCELLED"
+    assert response.get_json()["vacancies"] == 1
+
+
+def test_contractor_cannot_report_pending_worker_unavailable(app, setup_data):
+    data = setup_data
+    pending_application = JobApplication(
+        job_id=data["job"].id,
+        worker_id=data["worker"].id,
+        status="PENDING",
+        match_score=0.5,
+        score_breakdown={},
+    )
+    db.session.add(pending_application)
+    db.session.commit()
+
+    response = app.test_client().post(
+        f"/api/contractor/applications/{pending_application.id}/report-unavailable",
+        headers=contractor_headers(data["contractor_user"]),
+        json={},
+    )
+
+    assert response.status_code == 400, response.get_json()
+    db.session.refresh(pending_application)
+    assert pending_application.status == "PENDING"
+
+
+def test_contractor_can_invite_worker_with_existing_pending_application(app, setup_data):
+    data = setup_data
+    db.session.delete(data["invitation"])
+    db.session.add(JobApplication(
+        job_id=data["job"].id,
+        worker_id=data["worker"].id,
+        status="PENDING",
+        match_score=0.5,
+        score_breakdown={},
+    ))
+    db.session.commit()
+
+    response = app.test_client().post(
+        f"/api/contractor/jobs/{data['job'].id}/replacement-invitations",
+        headers=contractor_headers(data["contractor_user"]),
+        json={"worker_id": data["worker"].id},
+    )
+
+    assert response.status_code == 201, response.get_json()
+    assert response.get_json()["invitation"]["status"] == "PENDING"
+
+
+def test_contractor_can_report_selected_worker_unavailable_when_job_status_is_matching(app, setup_data):
+    data = setup_data
+    data["job"].status = "MATCHING"
+    selected_application = JobApplication(
+        job_id=data["job"].id,
+        worker_id=data["worker"].id,
+        status="SELECTED",
+        match_score=0.75,
+        score_breakdown={},
+    )
+    db.session.add(selected_application)
+    db.session.commit()
+
+    response = app.test_client().post(
+        f"/api/contractor/applications/{selected_application.id}/report-unavailable",
+        headers=contractor_headers(data["contractor_user"]),
+    )
+
+    assert response.status_code == 200, response.get_json()
+    db.session.refresh(selected_application)
+    assert selected_application.status == "CANCELLED"
+
+
+def test_replacement_candidates_are_available_when_job_status_is_matching(app, setup_data):
+    data = setup_data
+    data["job"].status = "MATCHING"
+    db.session.commit()
+
+    response = app.test_client().get(
+        f"/api/contractor/jobs/{data['job'].id}/replacement-candidates",
+        headers=contractor_headers(data["contractor_user"]),
+    )
+
+    assert response.status_code == 200, response.get_json()
+    assert data["worker"].id in [
+        item["id"] for item in response.get_json()["workers"]
+    ]

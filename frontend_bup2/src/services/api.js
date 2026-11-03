@@ -171,6 +171,12 @@ export const api = {
     }),
 
   // Emergency Worker Replacement
+  reportWorkerUnavailable: (applicationId) =>
+    request(`/contractor/applications/${applicationId}/report-unavailable`, {
+      method: "POST",
+      body: JSON.stringify({}),
+    }),
+
   replacementCandidates: (jobId) =>
     request(`/contractor/jobs/${jobId}/replacement-candidates`, {
       method: "GET",

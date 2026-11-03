@@ -183,6 +183,7 @@ def get_availability():
 
     except ValidationError as e:
         return jsonify({"error": str(e)}), 404
+
 @worker_bp.route("/jobs/recommended", methods=["GET"])
 @role_required("worker")
 def recommended_jobs():
@@ -371,6 +372,8 @@ def accept_replacement_invitation(invitation_id):
         ).scalar_one_or_none()
 
         if not job or job.status not in (
+            "MATCHING",
+            "APPLICANTS",
             "WORKER_SELECTED",
             "CONFIRMED",
             "IN_PROGRESS",
@@ -417,23 +420,32 @@ def accept_replacement_invitation(invitation_id):
             worker_id=profile.id,
         ).first()
 
-        if existing_application:
+        if existing_application and existing_application.status != "PENDING":
             db.session.rollback()
             return jsonify({
-                "error": "You already have an application for this job."
+                "error": f"You already have an application in status {existing_application.status}."
             }), 409
 
         locked_invitation.status = "ACCEPTED"
         locked_invitation.responded_at = datetime.now(timezone.utc)
 
-        application = JobApplication(
-            job_id=job.id,
-            worker_id=profile.id,
-            match_score=locked_invitation.match_score or 0.0,
-            score_breakdown=locked_invitation.score_breakdown,
-            status="SELECTED",
-        )
-        db.session.add(application)
+        if existing_application:
+            # Reuse the worker's existing pending application. The table has
+            # a unique (job_id, worker_id) constraint, so inserting another
+            # row would fail for workers who had already applied.
+            application = existing_application
+            application.status = "SELECTED"
+            application.match_score = locked_invitation.match_score or 0.0
+            application.score_breakdown = locked_invitation.score_breakdown
+        else:
+            application = JobApplication(
+                job_id=job.id,
+                worker_id=profile.id,
+                match_score=locked_invitation.match_score or 0.0,
+                score_breakdown=locked_invitation.score_breakdown,
+                status="SELECTED",
+            )
+            db.session.add(application)
         profile.jobs_accepted += 1
         contractor = db.session.get(ContractorProfile, locked_invitation.contractor_id)
         if contractor:
