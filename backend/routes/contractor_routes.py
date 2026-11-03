@@ -23,6 +23,7 @@ from models.contractor_profile import ContractorProfile
 from models.job import Job, VALID_TRANSITIONS
 from models.job_application import JobApplication
 from models.worker_profile import WorkerProfile
+from models.availability import Availability
 from models.skill import Skill
 from models.rating import Rating
 from models.notification import Notification
@@ -171,6 +172,21 @@ def job_applications(job_id):
     for application in applications:
         worker = application.worker.to_dict()
 
+        availability = Availability.query.filter_by(
+            worker_id=application.worker_id,
+            available_date=job.job_date,
+        ).first()
+
+        worker["available_for_job_date"] = (
+            availability.is_available if availability else False
+        )
+
+        print(
+            "DEBUG AVAILABILITY:",
+            application.worker_id,
+            job.job_date,
+            availability.is_available if availability else "NO RECORD"
+        )
         worker["application_id"] = application.id
         worker["application_status"] = application.status
         worker["has_rating"] = application.rating is not None
@@ -222,68 +238,76 @@ def recommended_workers(job_id):
     return jsonify({"workers": result}), 200
 
 
-
 @contractor_bp.route("/applications/<int:application_id>/select", methods=["POST"])
 @role_required("contractor")
 def select_worker(application_id):
+
+    from sqlalchemy import select
+
     try:
         profile = _get_current_contractor_profile()
     except ValidationError as e:
         return jsonify({"error": str(e)}), 404
 
-        from sqlalchemy import select
-
     application = JobApplication.query.get(application_id)
+
     if not application or application.job.contractor_id != profile.id:
         return jsonify({"error": "Application not found."}), 404
 
-    job = db.session.execute(
-        select(Job)
-        .where(Job.id == application.job_id)
-        .with_for_update()
-    ).scalar_one_or_none()
+    try:
+        job = db.session.execute(
+            select(Job)
+            .where(Job.id == application.job_id)
+            .with_for_update()
+        ).scalar_one_or_none()
 
-    if not job or job.contractor_id != profile.id:
-        return jsonify({"error": "Job not found."}), 404
+        if not job or job.contractor_id != profile.id:
+            db.session.rollback()
+            return jsonify({"error": "Job not found."}), 404
 
-    # Refresh the application after acquiring the job lock.
-    db.session.refresh(application)
+        db.session.refresh(application)
 
-    if application.status != "PENDING":
+        if application.status != "PENDING":
+            db.session.rollback()
+            return jsonify({
+                "error": f"Cannot select an application in status {application.status}."
+            }), 400
+
+        selected_count = JobApplication.query.filter_by(
+            job_id=job.id,
+            status="SELECTED",
+        ).count()
+
+        if selected_count >= job.workers_required:
+            db.session.rollback()
+            return jsonify({
+                "error": "This job has already reached its worker requirement."
+            }), 400
+
+        application.status = "SELECTED"
+        application.worker.jobs_accepted += 1
+
+        if job.status == "MATCHING":
+            job.status = "APPLICANTS"
+
+        if job.can_transition_to("WORKER_SELECTED"):
+            job.status = "WORKER_SELECTED"
+
+        db.session.add(Notification(
+            user_id=application.worker.user_id,
+            message=f"You have been selected for job #{job.id}.",
+            notif_type="SELECTED",
+        ))
+
+        db.session.commit()
+
         return jsonify({
-            "error": f"Cannot select an application in status {application.status}."
-        }), 400
+            "application": application.to_dict()
+        }), 200
 
-    selected_count = JobApplication.query.filter_by(
-        job_id=application.job_id,
-        status="SELECTED",
-    ).count()
-
-    if selected_count >= application.job.workers_required:
-        return jsonify({
-            "error": "This job has already reached its worker requirement."
-        }), 400
-
-    application.status = "SELECTED"
-    application.worker.jobs_accepted += 1
-
-    if application.job.status == "MATCHING":
-        application.job.status = "APPLICANTS"
-
-    if application.job.can_transition_to("WORKER_SELECTED"):
-        application.job.status = "WORKER_SELECTED"
-
-    notification = Notification(
-        user_id=application.worker.user_id,
-        message=f"You have been selected for job #{application.job_id}.",
-        notif_type="SELECTED",
-    )
-    db.session.add(notification)
-    db.session.commit()
-
-    return jsonify({"application": application.to_dict()}), 200
-
-
+    except Exception:
+        db.session.rollback()
+        raise
 
 @contractor_bp.route(
     "/jobs/<int:job_id>/replacement-candidates",

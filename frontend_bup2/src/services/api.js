@@ -207,12 +207,7 @@ export const api = {
       method: "GET",
     }),
 
-applications: (jobId) =>
-  request(`/contractor/jobs/${jobId}/applications`, {
-    method: "GET",
-  }),
-
-  // Create contractor job
+// Create contractor job
   createJob: (jobData) =>
     request("/contractor/jobs", {
       method: "POST",
@@ -260,6 +255,12 @@ wageAdvisor: (data) =>
               .map((skill) => skill.trim())
               .filter(Boolean),
       }),
+    }),
+
+  // Read the signed-in worker's saved availability for a date
+  getAvailability: (availableDate) =>
+    request(`/worker/availability?available_date=${encodeURIComponent(availableDate)}`, {
+      method: "GET",
     }),
 
   // Set worker availability

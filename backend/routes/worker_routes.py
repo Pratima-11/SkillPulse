@@ -1,3 +1,5 @@
+
+
 """
 Worker-facing endpoints.
 
@@ -155,7 +157,32 @@ def set_availability():
         db.session.rollback()
         return jsonify({"error": str(e)}), 400
 
+@worker_bp.route("/availability", methods=["GET"])
+@role_required("worker")
+def get_availability():
+    try:
+        profile = _get_current_worker_profile()
 
+        available_date = request.args.get("available_date")
+        if not available_date:
+            return jsonify({"error": "available_date is required"}), 400
+
+        try:
+            parsed_date = date.fromisoformat(available_date)
+        except ValueError:
+            return jsonify({"error": "Invalid date format. Use YYYY-MM-DD."}), 400
+
+        availability = Availability.query.filter_by(
+            worker_id=profile.id,
+            available_date=parsed_date,
+        ).first()
+
+        return jsonify({
+            "availability": availability.to_dict() if availability else None
+        }), 200
+
+    except ValidationError as e:
+        return jsonify({"error": str(e)}), 404
 @worker_bp.route("/jobs/recommended", methods=["GET"])
 @role_required("worker")
 def recommended_jobs():

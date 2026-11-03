@@ -603,7 +603,11 @@ useEffect(() => {
 
 function WorkerPanel({ items, profile, applications, notifications, action }) {
   const [skills, setSkills] = useState((profile?.skills || []).join(", "));
-  const [date, setDate] = useState("");
+  const [date, setDate] = useState(
+    () => localStorage.getItem("skillpulse_availability_date") || ""
+  );
+  const [isAvailable, setIsAvailable] = useState(true);
+  const [availabilityLoading, setAvailabilityLoading] = useState(false);
   const [area, setArea] = useState(profile?.area_text || "Bengaluru");
   const [latitude, setLatitude] = useState(profile?.latitude ?? "12.9716");
   const [longitude, setLongitude] = useState(profile?.longitude ?? "77.5946");
@@ -658,6 +662,32 @@ function WorkerPanel({ items, profile, applications, notifications, action }) {
 
 
 
+  useEffect(() => {
+    if (!date) {
+      setIsAvailable(true);
+      return undefined;
+    }
+
+    let cancelled = false;
+    setAvailabilityLoading(true);
+    api.getAvailability(date)
+      .then((response) => {
+        if (cancelled) return;
+        const saved = response?.availability;
+        setIsAvailable(saved ? Boolean(saved.is_available) : true);
+      })
+      .catch((error) => {
+        console.error("Failed to load saved availability:", error);
+      })
+      .finally(() => {
+        if (!cancelled) setAvailabilityLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [date]);
+
   const today = new Date().toISOString().slice(0, 10);
 
   const saveProfile = () =>
@@ -689,8 +719,10 @@ function WorkerPanel({ items, profile, applications, notifications, action }) {
 
   const saveAvailability = () =>
     action(
-      () => api.setAvailability(date, true),
-      "Availability saved — refreshing your matches"
+      () => api.setAvailability(date, isAvailable),
+      isAvailable
+        ? "Availability saved — refreshing your matches"
+        : "Marked unavailable — refreshing your matches"
     );
     
 const uploadPhoto = async () => {
@@ -932,10 +964,44 @@ const uploadPhoto = async () => {
         <div className="availability-box">
           <div className="section-label">AVAILABILITY</div>
           <h2>Tell us when you can work.</h2>
-          <p className="panel-description">Mark yourself available for a date so contractors can include you in matching.</p>
+          <p className="panel-description">Choose a date and tell contractors whether you are available to work.</p>
           <div className="availability-row">
-            <div><label>AVAILABLE DATE</label><input type="date" min={today} value={date} onChange={(e) => setDate(e.target.value)} /></div>
-            <button className="primary-btn small-btn" disabled={!date} onClick={saveAvailability}>Save availability →</button>
+            <div>
+              <label>DATE</label>
+              <input
+                type="date"
+                min={today}
+                value={date}
+                onChange={(e) => {
+                  const selectedDate = e.target.value;
+                  setDate(selectedDate);
+                  if (selectedDate) {
+                    localStorage.setItem("skillpulse_availability_date", selectedDate);
+                  } else {
+                    localStorage.removeItem("skillpulse_availability_date");
+                  }
+                }}
+              />
+            </div>
+            <div>
+              <label>WORK STATUS</label>
+              <select
+                value={isAvailable ? "available" : "unavailable"}
+                onChange={(e) => setIsAvailable(e.target.value === "available")}
+                disabled={availabilityLoading}
+              >
+                <option value="available">Available</option>
+                <option value="unavailable">Unavailable</option>
+              </select>
+            </div>
+            <button
+              type="button"
+              className="primary-btn small-btn"
+              disabled={!date || availabilityLoading}
+              onClick={saveAvailability}
+            >
+              Save status →
+            </button>
           </div>
         </div>
       </section>
@@ -1865,139 +1931,123 @@ const contribution = (score, weight) =>
                   ` · ${applications.length}`}
               </h2>
             </div>
+{applications.length === 0 ? (
+  <div className="empty-panel">
+    No applications received for this job yet.
+  </div>
+) : (
+  applications.map((application) => {
+    console.log(
+      "Contractor application availability:",
+      application.full_name,
+      application.available_for_job_date,
+      typeof application.available_for_job_date
+    );
 
-            {applications.length === 0 ? (
-              <div className="empty-panel">
-                No applications received for this job yet.
-              </div>
-            ) : (
-              applications.map((application) => (
-                <div
-                  className="contractor-application-card"
-                  key={application.application_id}
-                >
-                  <div className="contractor-application-main">
+    const unavailable = application.available_for_job_date !== true &&
+      application.available_for_job_date !== 1;
 
-                    <div className="contractor-application-avatar">
-                      👷
-                    </div>
-
-                    <div className="contractor-application-info">
-
-                      <div className="contractor-application-title">
-                        <h3>{application.full_name}</h3>
-
-                        <span
-                          className={`contractor-application-status ${String(
-                            application.application_status || "PENDING"
-                          ).toLowerCase()}`}
-                        >
-                          {application.application_status || "PENDING"}
-                        </span>
-                      </div>
-
-                      <div className="contractor-application-meta">
-                        <span>
-                          🛠️ {(application.skills || []).join(", ") ||
-                            "Skills not listed"}
-                        </span>
-
-                        <span>
-                          🎓 {application.experience_years || 0} yrs
-                        </span>
-
-                        <span>
-                          📍 {application.area_text ||
-                            "Location unavailable"}
-                        </span>
-                      </div>
-
-                      {application.match_score !== null &&
-                        application.match_score !== undefined && (
-                          <div className="contractor-application-match">
-                            Match score:
-                            <strong>
-                              {Math.round(Number(application.match_score))}%
-                            </strong>
-                          </div>
-                        )}
-
-                    </div>
-                  </div>
-
-                  <div className="contractor-application-actions">
-
-                    {application.application_status === "PENDING" && (
-                      <>
-                        <button
-                          className="contractor-select-btn"
-                          onClick={() =>
-                            handleApplicationAction(
-                              application.application_id,
-                              "select",
-                              "Worker selected"
-                            )
-                          }
-                        >
-                          Select
-                        </button>
-
-                        <button
-                          className="contractor-reject-btn"
-                          onClick={() =>
-                            handleApplicationAction(
-                              application.application_id,
-                              "reject",
-                              "Application rejected"
-                            )
-                          }
-                        >
-                          Reject
-                        </button>
-                      </>
-                    )}
-
-                    {application.application_status === "SELECTED" && (
-                      <span className="contractor-selected-badge">
-                        ✓ Selected
-                      </span>
-                    )}
-
-                    {application.application_status === "REJECTED" && (
-                      <span className="contractor-rejected-badge">
-                        Rejected
-                      </span>
-                    )}
-                   {application.application_status === "COMPLETED" && (
-  <>
-    {application.has_rating ? (
-      <span className="contractor-selected-badge">
-        ✓ Worker Rated
-      </span>
-    ) : (
-      <button
-        type="button"
-        className="contractor-rate-btn"
-        onClick={() => {
-          setRatingApplication(application);
-          setRatingValue(0);
-          setRatingComment("");
-        }}
+    return (
+      <div
+        className="contractor-application-card"
+        key={application.application_id}
       >
-        ⭐ Rate Worker
-      </button>
-    )}
-  </>
-)}
-    
-
-
-                  </div>
-                </div>
-              ))
+        <div className="contractor-application-main">
+          <div className="contractor-application-avatar">👷</div>
+          <div className="contractor-application-info">
+            <div className="contractor-application-title">
+              <h3>{application.full_name}</h3>
+              <span
+                className={`contractor-application-status ${String(
+                  application.application_status || "PENDING"
+                ).toLowerCase()}`}
+              >
+                {application.application_status || "PENDING"}
+              </span>
+            </div>
+            <div className="contractor-application-meta">
+              <span>🛠️ {(application.skills || []).join(", ") || "Skills not listed"}</span>
+              <span>🎓 {application.experience_years || 0} yrs</span>
+              <span>📍 {application.area_text || "Location unavailable"}</span>
+            </div>
+            {application.match_score !== null && application.match_score !== undefined && (
+              <div className="contractor-application-match">
+                Match score: <strong>{Math.round(Number(application.match_score))}%</strong>
+              </div>
             )}
-          </>
+          </div>
+        </div>
+
+        <div className="contractor-application-actions">
+          {application.application_status === "PENDING" && (
+            <>
+              <button
+  type="button"
+  className="contractor-select-btn"
+  disabled={unavailable}
+  style={{
+    opacity: unavailable ? 0.45 : 1,
+    cursor: unavailable ? "not-allowed" : "pointer",
+    pointerEvents: unavailable ? "none" : "auto",
+  }}
+  onClick={() => {
+    if (unavailable) return;
+
+    handleApplicationAction(
+      application.application_id,
+      "select",
+      "Worker selected"
+    );
+  }}
+>
+  Select
+</button>
+              {unavailable && (
+                <span className="text-danger">Unavailable for job date</span>
+              )}
+              <button
+                type="button"
+                className="contractor-reject-btn"
+                onClick={() => handleApplicationAction(
+                  application.application_id,
+                  "reject",
+                  "Application rejected"
                 )}
+              >
+                Reject
+              </button>
+            </>
+          )}
+          {application.application_status === "SELECTED" && (
+            <span className="contractor-selected-badge">✓ Selected</span>
+          )}
+          {application.application_status === "REJECTED" && (
+            <span className="contractor-rejected-badge">Rejected</span>
+          )}
+          {application.application_status === "COMPLETED" && (
+            application.has_rating ? (
+              <span className="contractor-selected-badge">✓ Worker Rated</span>
+            ) : (
+              <button
+                type="button"
+                className="contractor-rate-btn"
+                onClick={() => {
+                  setRatingApplication(application);
+                  setRatingValue(0);
+                  setRatingComment("");
+                }}
+              >
+                ⭐ Rate Worker
+              </button>
+            )
+          )}
+        </div>
+      </div>
+    );
+  })
+)}
+          </>
+        )}
 
         {/* NOTIFICATIONS */}
         <section
