@@ -131,8 +131,19 @@ export const api = {
   publicStats: () => request("/stats"),
 
   // Public/open jobs
-  jobs: (search = "") =>
-    request(`/jobs${search ? `?q=${encodeURIComponent(search)}` : ""}`),
+  jobs: (search = "") => {
+    if (search && typeof search === "object") {
+      const params = new URLSearchParams();
+      Object.entries(search).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && String(value).trim() !== "") {
+          params.set(key, String(value).trim());
+        }
+      });
+      const query = params.toString();
+      return request(`/jobs${query ? `?${query}` : ""}`);
+    }
+    return request(`/jobs${search ? `?q=${encodeURIComponent(search)}` : ""}`);
+  },
 
   // Apply for a job
   apply: (jobId) =>

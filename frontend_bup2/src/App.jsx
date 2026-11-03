@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useMemo } from "react";
 import "./App.css";
 import { api, healthCheck } from "./services/api";
+import PublicFeaturePage from "./PublicFeaturePage";
 
 
 const fallbackJobs = [
@@ -10,7 +11,7 @@ const fallbackJobs = [
 ];
 
 const icons = { Painter: "🎨", Mason: "🧱", Plumber: "🔧", Electrician: "⚡", Carpenter: "🪚", Helper: "👷" };
-const emptyStats = { verified_workers: 0, contractors: 0, jobs_completed: 0, average_rating: 0, open_jobs: 0 };
+const emptyStats = { verified_workers: 0, active_contractors: 0, completed_jobs: 0, average_rating: 0 };
 
 function formatDate(value) {
   if (!value || value === "Tomorrow") return value || "";
@@ -26,6 +27,7 @@ function App() {
   const [authMode, setAuthMode] = useState(null);
   const [user, setUser] = useState(null);
   const [error, setError] = useState("");
+  const [activePage, setActivePage] = useState("home");
     const [backendStatus, setBackendStatus] = useState("checking");
 
 
@@ -60,7 +62,7 @@ useEffect(() => {
     if (localStorage.getItem("skillpulse_token")) api.me().then((r) => setUser(r.user)).catch(() => localStorage.removeItem("skillpulse_token"));
   }, []);
 
-  const visibleJobs = useMemo(() => jobs.length ? jobs.slice(0, 6) : fallbackJobs, [jobs]);
+  const visibleJobs = useMemo(() => jobs.slice(0, 6), [jobs]);
 
   async function runSearch(e) {
     e?.preventDefault(); setLoading(true); setError("");
@@ -86,13 +88,13 @@ useEffect(() => {
   return (
     <div className="app">
       <header className="navbar"><div className="nav-container">
-        <div className="brand" onClick={() => scrollTo("home")}><div className="brand-icon">S</div><div><div className="brand-name">SkillPulse</div><div className="brand-tagline">WORK. MATCHED.</div></div></div>
-        <nav className="nav-links"><button onClick={() => scrollTo("home")}>Home</button><button onClick={() => scrollTo("jobs")}>Find Jobs</button><button onClick={() => scrollTo("workers")}>Find Workers</button><button onClick={() => scrollTo("how-it-works")}>How It Works</button></nav>
+        <div className="brand" onClick={() => setActivePage("home")}><div className="brand-icon">S</div><div><div className="brand-name">SkillPulse</div><div className="brand-tagline">WORK. MATCHED.</div></div></div>
+        <nav className="nav-links"><button className={activePage === "home" ? "active" : ""} onClick={() => setActivePage("home")}>Home</button><button className={activePage === "find-jobs" ? "active" : ""} onClick={() => setActivePage("find-jobs")}>Find Jobs</button><button className={activePage === "find-workers" ? "active" : ""} onClick={() => setActivePage("find-workers")}>Find Workers</button><button className={activePage === "how-it-works" ? "active" : ""} onClick={() => setActivePage("how-it-works")}>How It Works</button><button className={activePage === "ai-voice-assistant" ? "active" : ""} onClick={() => setActivePage("ai-voice-assistant")}>AI Voice Assistant</button></nav>
         <div className="nav-actions"><button className="login-btn" onClick={() => setAuthMode("login")}>Login</button><button className="dark-btn" onClick={() => setAuthMode("register")}>Get Started</button></div>
         <button className="mobile-menu">☰</button>
       </div></header>
 
-      <main>
+      {activePage === "home" ? <main>
         <section className="hero" id="home"><div className="hero-container"><div className="hero-content">
           <div className="eyebrow"><span></span>NEXT-DAY LABOUR MATCHING</div>
           <h1>The right worker.<br /><span>For the right job.</span><br />Tomorrow.</h1>
@@ -137,9 +139,9 @@ useEffect(() => {
         <section className="worker-section" id="workers"><div className="section-container worker-content"><div><div className="section-label">FOR WORKERS</div><h2>Skilled workers deserve<br /><span>better opportunities.</span></h2><p>Find nearby jobs that match your skills, availability and preferred working distance.</p><ul className="benefit-list"><li><span>✓</span> Find jobs near you</li><li><span>✓</span> Know the wage before accepting</li><li><span>✓</span> Choose jobs for your availability</li></ul><button className="primary-btn" onClick={() => setAuthMode("register")}>Create worker account <span>→</span></button></div><div className="matching-card"><div className="matching-header"><div className="profile"><div className="profile-avatar">👷</div><div><strong>Transparent ranking</strong><small>Skill · distance · availability · reliability</small></div></div><span className="match-percent">AI</span></div><div className="progress-item"><div><span>Location</span><strong>Hard filter</strong></div><div className="progress"><span style={{ width: "88%" }}></span></div></div><div className="progress-item"><div><span>Experience</span><strong>Scored</strong></div><div className="progress"><span style={{ width: "76%" }}></span></div></div><div className="progress-item"><div><span>Reliability</span><strong>Model + history</strong></div><div className="progress"><span style={{ width: "92%" }}></span></div></div></div></div></section>
 
         <section className="cta-section" id="cta"><div className="cta-container"><div><div className="section-label orange-label">GET STARTED</div><h2>Ready to find the<br />right match?</h2><p>Whether you're hiring skilled labour or looking for your next job, SkillPulse brings both sides together.</p></div><div className="cta-buttons"><button className="primary-btn" onClick={() => setAuthMode("register")}>Create account <span>→</span></button><button className="cta-secondary" onClick={() => setAuthMode("login")}>Login</button></div></div></section>
-      </main>
+      </main> : <PublicFeaturePage page={activePage} onAuth={setAuthMode} />}
 
-      <footer className="footer"><div className="footer-container"><div className="footer-brand"><div className="brand"><div className="brand-icon">S</div><div><div className="brand-name">SkillPulse</div><div className="brand-tagline">WORK. MATCHED.</div></div></div><p>Connecting skilled workers and contractors for<br />faster, better opportunities.</p></div><div className="footer-column"><h4>Platform</h4><button onClick={() => scrollTo("jobs")}>Find Jobs</button><button onClick={() => scrollTo("workers")}>Find Workers</button><button onClick={() => scrollTo("how-it-works")}>How It Works</button></div><div className="footer-column"><h4>Account</h4><button onClick={() => setAuthMode("login")}>Login</button><button onClick={() => setAuthMode("register")}>Register</button></div></div><div className="footer-bottom"><span>© 2026 SkillPulse. All rights reserved.</span><span>Built for real-world work.</span></div></footer>
+      <footer className="footer"><div className="footer-container"><div className="footer-brand"><div className="brand"><div className="brand-icon">S</div><div><div className="brand-name">SkillPulse</div><div className="brand-tagline">WORK. MATCHED.</div></div></div><p>Connecting skilled workers and contractors for<br />faster, better opportunities.</p></div><div className="footer-column"><h4>Platform</h4><button onClick={() => setActivePage("find-jobs")}>Find Jobs</button><button onClick={() => setActivePage("find-workers")}>Find Workers</button><button onClick={() => setActivePage("how-it-works")}>How It Works</button></div><div className="footer-column"><h4>Account</h4><button onClick={() => setAuthMode("login")}>Login</button><button onClick={() => setAuthMode("register")}>Register</button></div></div><div className="footer-bottom"><span>© 2026 SkillPulse. All rights reserved.</span><span>Built for real-world work.</span></div></footer>
 
       {authMode && <AuthModal mode={authMode} setMode={setAuthMode} onSubmit={handleAuth} error={error} />}
     </div>

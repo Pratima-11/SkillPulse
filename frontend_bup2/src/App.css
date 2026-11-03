@@ -3200,3 +3200,62 @@ button {
 .worker-settings-panel > .replacement-invitations-panel:last-child {
   margin-bottom: 0;
 }
+
+
+/* Public feature pages — scoped styles; existing dashboard styles remain unchanged. */
+.nav-links button.active { color: var(--orange-dark); }
+.sp-page { max-width: 1180px; min-height: 65vh; margin: 0 auto; padding: 76px 28px 100px; }
+.sp-page-heading { max-width: 760px; margin-bottom: 38px; }
+.sp-eyebrow { display: inline-block; color: var(--orange-dark); font-size: 12px; font-weight: 800; letter-spacing: 1.8px; margin-bottom: 14px; }
+.sp-page-heading h1 { font: 800 clamp(38px, 6vw, 64px)/1.05 Manrope, sans-serif; letter-spacing: -2px; margin-bottom: 16px; }
+.sp-page-heading h1 em { color: var(--orange); font-style: normal; }
+.sp-page-heading p, .sp-note { color: var(--muted); line-height: 1.7; }
+.sp-filter-panel { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)) auto; gap: 14px; align-items: end; padding: 22px; border: 1px solid var(--border); border-radius: 18px; background: white; box-shadow: var(--shadow); margin-bottom: 28px; }
+.sp-filter-panel label, .sp-voice-panel > label { display: grid; gap: 8px; color: #555; font-size: 12px; font-weight: 700; }
+.sp-filter-panel input, .sp-filter-panel select, .sp-voice-panel select { width: 100%; min-height: 44px; border: 1px solid var(--border); border-radius: 9px; padding: 0 12px; background: white; color: var(--text); font: inherit; }
+.sp-primary, .sp-secondary { min-height: 44px; border-radius: 9px; padding: 0 18px; font-weight: 700; }
+.sp-primary { background: var(--dark); color: white; }
+.sp-primary:hover { background: var(--orange-dark); }
+.sp-secondary { background: #f2eee9; color: var(--dark); }
+.sp-job-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
+.sp-job-card, .sp-info-panel, .sp-three-grid article, .sp-process-list article, .sp-voice-panel { border: 1px solid var(--border); border-radius: 16px; background: white; padding: 22px; box-shadow: 0 8px 28px rgba(32,25,20,.045); }
+.sp-card-top, .sp-job-meta { display: flex; justify-content: space-between; align-items: center; gap: 12px; color: var(--muted); font-size: 12px; }
+.sp-chip { border-radius: 30px; padding: 6px 10px; background: #fff0e5; color: var(--orange-dark); font-weight: 700; }
+.sp-job-card h3 { margin: 18px 0 8px; font-size: 21px; }
+.sp-job-card p { color: var(--muted); line-height: 1.55; }
+.sp-location { margin: 14px 0; }
+.sp-job-meta { border-top: 1px solid var(--border); padding: 15px 0; margin-top: 14px; }
+.sp-job-meta strong { color: var(--dark); font-size: 19px; }
+.sp-job-meta small { font-size: 11px; color: var(--muted); }
+.sp-job-card .sp-primary { width: 100%; }
+.sp-state, .sp-error { padding: 22px; border-radius: 12px; background: white; color: var(--muted); }
+.sp-error { color: #b42318; background: #fff4f2; }
+.sp-note { margin-top: 22px; font-size: 13px; }
+.sp-info-panel { display: flex; gap: 22px; align-items: flex-start; }
+.sp-info-panel h2 { margin-bottom: 10px; }
+.sp-info-panel p { max-width: 760px; color: var(--muted); line-height: 1.7; margin-bottom: 18px; }
+.sp-icon { width: 48px; height: 48px; flex: 0 0 48px; display: grid; place-items: center; border-radius: 14px; background: #fff0e5; color: var(--orange-dark); font-size: 24px; }
+.sp-three-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-top: 22px; }
+.sp-three-grid b, .sp-process-list article > span { color: var(--orange-dark); font-weight: 800; }
+.sp-three-grid h3 { margin: 12px 0 8px; }
+.sp-three-grid p, .sp-process-list p { color: var(--muted); line-height: 1.65; }
+.sp-process-list { display: grid; gap: 14px; }
+.sp-process-list article { display: flex; gap: 20px; align-items: flex-start; }
+.sp-process-list article > span { font-size: 24px; }
+.sp-process-list h2 { font-size: 20px; margin-bottom: 7px; }
+.sp-voice-panel { max-width: 850px; margin-bottom: 26px; }
+.sp-voice-panel > label { max-width: 280px; }
+.sp-voice-actions { display: flex; gap: 12px; margin: 20px 0; }
+.sp-voice-status { color: var(--muted); margin-bottom: 16px; }
+.sp-voice-filters { grid-template-columns: 1fr 1fr auto; margin: 18px 0 0; padding: 0; border: 0; box-shadow: none; }
+@media (max-width: 900px) {
+  .sp-filter-panel { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .sp-job-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .sp-three-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 600px) {
+  .sp-page { padding: 48px 18px 70px; }
+  .sp-filter-panel, .sp-voice-filters, .sp-job-grid { grid-template-columns: 1fr; }
+  .sp-info-panel, .sp-process-list article { flex-direction: column; }
+  .sp-voice-actions { flex-wrap: wrap; }
+}
