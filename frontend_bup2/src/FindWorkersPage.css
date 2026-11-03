@@ -1,0 +1,975 @@
+/* ==========================================
+   SKILLPULSE - FIND WORKERS REDESIGN
+========================================== */
+
+.fw-page {
+  --fw-orange: #f47721;
+  --fw-orange-dark: #df5d0c;
+  --fw-black: #202020;
+  --fw-muted: #747474;
+  --fw-bg: #faf8f5;
+  --fw-border: #ece5dd;
+
+  background: var(--fw-bg);
+  color: var(--fw-black);
+  width: 100%;
+  overflow: hidden;
+  font-family: inherit;
+}
+
+.fw-page * {
+  box-sizing: border-box;
+}
+
+
+/* HERO */
+
+.fw-hero {
+  max-width: 1440px;
+  margin: auto;
+  min-height: 590px;
+  padding: 95px 5% 85px;
+  display: grid;
+  grid-template-columns: 1.05fr 0.95fr;
+  align-items: center;
+  gap: 55px;
+}
+
+.fw-hero-content {
+  max-width: 650px;
+  position: relative;
+  z-index: 2;
+}
+
+.fw-eyebrow {
+  color: var(--fw-orange-dark);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 2.5px;
+  margin-bottom: 22px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.fw-eyebrow-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--fw-orange);
+  box-shadow: 0 0 0 5px rgba(244, 119, 33, 0.12);
+}
+
+.fw-hero h1 {
+  font-size: clamp(44px, 5.2vw, 73px);
+  line-height: 1.08;
+  letter-spacing: -3px;
+  font-weight: 800;
+  margin: 0 0 25px;
+}
+
+.fw-hero h1 span {
+  color: var(--fw-orange);
+}
+
+.fw-hero-description {
+  max-width: 590px;
+  font-size: 18px;
+  line-height: 1.8;
+  color: var(--fw-muted);
+  margin-bottom: 32px;
+}
+
+.fw-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 15px;
+}
+
+.fw-primary-button,
+.fw-secondary-button {
+  min-height: 54px;
+  padding: 0 25px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 700;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  gap: 20px;
+  text-decoration: none;
+  cursor: pointer;
+  transition: 0.25s ease;
+}
+
+.fw-primary-button {
+  background: var(--fw-black);
+  color: white;
+  border: 1px solid var(--fw-black);
+}
+
+.fw-primary-button:hover {
+  background: var(--fw-orange);
+  border-color: var(--fw-orange);
+  color: white;
+  transform: translateY(-3px);
+  box-shadow: 0 10px 25px rgba(244, 119, 33, 0.2);
+}
+
+.fw-primary-button span,
+.fw-secondary-button span {
+  font-size: 20px;
+}
+
+.fw-secondary-button {
+  color: var(--fw-black);
+  border: 1px solid var(--fw-border);
+  background: white;
+}
+
+.fw-secondary-button:hover {
+  color: var(--fw-orange-dark);
+  border-color: var(--fw-orange);
+  transform: translateY(-3px);
+}
+
+.fw-trust-line {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin-top: 27px;
+  font-size: 12px;
+  color: var(--fw-muted);
+}
+
+.fw-trust-line > span:first-child,
+.fw-trust-line > span:nth-of-type(2) {
+  color: var(--fw-orange);
+  font-weight: 900;
+}
+
+.fw-trust-divider {
+  color: #c5bdb4;
+}
+
+
+/* MATCHING VISUAL */
+
+.fw-visual {
+  min-height: 425px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  isolation: isolate;
+}
+
+.fw-visual::before {
+  content: "";
+  position: absolute;
+  width: 390px;
+  height: 390px;
+  background: linear-gradient(
+    135deg,
+    #ffe2cb,
+    #fff0e5 55%,
+    #f9d7bd
+  );
+  border-radius: 50%;
+  z-index: -2;
+  opacity: 0.8;
+}
+
+.fw-visual-orbit {
+  position: absolute;
+  border: 1px dashed rgba(244, 119, 33, 0.3);
+  border-radius: 50%;
+  z-index: -1;
+}
+
+.fw-orbit-one {
+  width: 450px;
+  height: 450px;
+  animation: fw-rotate 35s linear infinite;
+}
+
+.fw-orbit-two {
+  width: 510px;
+  height: 510px;
+  animation: fw-rotate 45s linear infinite reverse;
+}
+
+@keyframes fw-rotate {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.fw-visual-label {
+  position: absolute;
+  top: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: white;
+  padding: 11px 18px;
+  border-radius: 50px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.06);
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  white-space: nowrap;
+}
+
+.fw-live-dot {
+  width: 8px;
+  height: 8px;
+  background: #2bb673;
+  border-radius: 50%;
+  box-shadow: 0 0 0 4px rgba(43, 182, 115, 0.12);
+}
+
+.fw-match-card {
+  width: min(100%, 420px);
+  background: white;
+  padding: 25px;
+  border-radius: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  box-shadow: 0 25px 70px rgba(66, 43, 22, 0.13);
+  position: relative;
+  z-index: 2;
+  animation: fw-float 5s ease-in-out infinite;
+}
+
+@keyframes fw-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-9px);
+  }
+}
+
+.fw-match-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.fw-card-caption {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  color: var(--fw-orange-dark);
+}
+
+.fw-match-header h3 {
+  font-size: 23px;
+  font-weight: 800;
+  margin: 9px 0 4px;
+}
+
+.fw-match-header p {
+  font-size: 13px;
+  color: var(--fw-muted);
+  margin: 0;
+}
+
+.fw-match-icon {
+  height: 45px;
+  width: 45px;
+  background: #fff0e5;
+  color: var(--fw-orange);
+  border-radius: 13px;
+  font-size: 32px;
+  display: grid;
+  place-items: center;
+}
+
+.fw-requirement-details {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin: 25px 0;
+  padding: 17px 0;
+  border-top: 1px solid #f0ece8;
+  border-bottom: 1px solid #f0ece8;
+}
+
+.fw-requirement-details div {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.fw-requirement-details span {
+  font-size: 9px;
+  color: var(--fw-muted);
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+.fw-requirement-details strong {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.fw-matching-line {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #fff6ef;
+  border-radius: 13px;
+  padding: 14px;
+}
+
+.fw-matching-icon {
+  height: 38px;
+  width: 38px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  color: white;
+  background: var(--fw-orange);
+  border-radius: 11px;
+  font-size: 21px;
+}
+
+.fw-matching-line > div:nth-child(2) {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  flex: 1;
+}
+
+.fw-matching-line strong {
+  font-size: 12px;
+}
+
+.fw-matching-line span {
+  font-size: 10px;
+  color: var(--fw-muted);
+}
+
+.fw-matching-arrow {
+  font-size: 22px;
+  color: var(--fw-orange);
+}
+
+.fw-match-flow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 22px;
+}
+
+.fw-flow-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.fw-flow-number {
+  height: 27px;
+  width: 27px;
+  border-radius: 50%;
+  background: var(--fw-black);
+  color: white;
+  display: grid;
+  place-items: center;
+  font-size: 9px;
+}
+
+.fw-flow-connector {
+  height: 1px;
+  background: #e9d7c9;
+  flex: 1;
+}
+
+.fw-demo-note {
+  font-size: 10px;
+  color: #8a8179;
+  line-height: 1.5;
+  margin-top: 17px;
+  padding-top: 12px;
+  border-top: 1px solid #f0ece8;
+}
+
+.fw-floating-card {
+  position: absolute;
+  z-index: 3;
+  background: white;
+  padding: 12px 16px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 700;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.fw-floating-card span {
+  color: var(--fw-orange);
+  font-size: 17px;
+}
+
+.fw-floating-top {
+  top: 85px;
+  right: -5px;
+  animation: fw-float 4s ease-in-out infinite;
+}
+
+.fw-floating-bottom {
+  bottom: 50px;
+  left: -15px;
+  animation: fw-float 5s ease-in-out infinite reverse;
+}
+
+
+/* HIGHLIGHT STRIP */
+
+.fw-highlight-strip {
+  max-width: 1300px;
+  margin: 0 auto 90px;
+  background: white;
+  border: 1px solid var(--fw-border);
+  border-radius: 18px;
+  padding: 25px 35px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.fw-highlight-item {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+}
+
+.fw-highlight-icon {
+  height: 45px;
+  width: 45px;
+  background: #fff1e6;
+  border-radius: 13px;
+  display: grid;
+  place-items: center;
+  font-size: 20px;
+}
+
+.fw-highlight-item div {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.fw-highlight-item strong {
+  font-size: 13px;
+}
+
+.fw-highlight-item div span {
+  font-size: 11px;
+  color: var(--fw-muted);
+}
+
+.fw-highlight-separator {
+  height: 35px;
+  width: 1px;
+  background: var(--fw-border);
+}
+
+
+/* PROCESS SECTION */
+
+.fw-process-section {
+  max-width: 1300px;
+  margin: 0 auto;
+  padding: 20px 20px 110px;
+}
+
+.fw-section-heading {
+  text-align: center;
+  max-width: 650px;
+  margin: 0 auto 55px;
+}
+
+.fw-section-heading .fw-eyebrow {
+  justify-content: center;
+}
+
+.fw-section-heading h2,
+.fw-benefits-intro h2 {
+  font-size: clamp(32px, 4vw, 48px);
+  line-height: 1.2;
+  letter-spacing: -1.5px;
+  font-weight: 800;
+  margin: 0 0 17px;
+}
+
+.fw-section-heading h2 span,
+.fw-benefits-intro h2 span {
+  color: var(--fw-orange);
+}
+
+.fw-section-heading p {
+  color: var(--fw-muted);
+  font-size: 16px;
+  line-height: 1.7;
+}
+
+.fw-process-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 22px;
+}
+
+.fw-process-card {
+  background: white;
+  padding: 30px;
+  border-radius: 20px;
+  border: 1px solid var(--fw-border);
+  position: relative;
+  min-height: 260px;
+  transition: 0.3s ease;
+}
+
+.fw-process-card:hover {
+  transform: translateY(-9px);
+  border-color: rgba(244, 119, 33, 0.6);
+  box-shadow: 0 18px 45px rgba(62, 43, 25, 0.08);
+}
+
+.fw-process-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
+}
+
+.fw-step-number {
+  color: var(--fw-orange);
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.fw-process-icon {
+  height: 53px;
+  width: 53px;
+  background: #fff1e6;
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+  font-size: 24px;
+}
+
+.fw-process-tag {
+  color: var(--fw-orange-dark);
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.fw-process-card h3 {
+  font-size: 21px;
+  margin: 12px 0;
+  font-weight: 800;
+}
+
+.fw-process-card p {
+  font-size: 14px;
+  line-height: 1.8;
+  color: var(--fw-muted);
+  margin: 0;
+}
+
+.fw-process-arrow {
+  position: absolute;
+  right: 25px;
+  bottom: 24px;
+  color: var(--fw-orange);
+  font-size: 23px;
+}
+
+
+/* BENEFITS SECTION */
+
+.fw-benefits-section {
+  background: #f1ece5;
+  padding: 95px max(5%, calc((100% - 1250px) / 2));
+  display: grid;
+  grid-template-columns: 0.85fr 1.15fr;
+  align-items: center;
+  gap: 70px;
+}
+
+.fw-benefits-intro {
+  max-width: 450px;
+}
+
+.fw-benefits-intro h2 {
+  margin-bottom: 20px;
+}
+
+.fw-benefits-intro p {
+  color: var(--fw-muted);
+  font-size: 15px;
+  line-height: 1.8;
+  margin-bottom: 27px;
+}
+
+.fw-benefits-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 17px;
+}
+
+.fw-benefit-card {
+  background: white;
+  border-radius: 17px;
+  padding: 24px;
+  position: relative;
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  transition: 0.3s ease;
+}
+
+.fw-benefit-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.07);
+}
+
+.fw-benefit-icon {
+  width: 45px;
+  height: 45px;
+  background: #fff1e6;
+  border-radius: 13px;
+  display: grid;
+  place-items: center;
+  font-size: 21px;
+  margin-bottom: 19px;
+}
+
+.fw-benefit-index {
+  position: absolute;
+  top: 27px;
+  right: 25px;
+  font-size: 11px;
+  font-weight: 800;
+  color: #c7bdb3;
+}
+
+.fw-benefit-card h3 {
+  font-size: 16px;
+  font-weight: 800;
+  margin-bottom: 9px;
+}
+
+.fw-benefit-card p {
+  font-size: 12px;
+  color: var(--fw-muted);
+  line-height: 1.7;
+  margin: 0;
+}
+
+
+/* CTA SECTION */
+
+.fw-cta-section {
+  max-width: 1300px;
+  margin: 100px auto;
+  padding: 65px 70px;
+  border-radius: 25px;
+  background: var(--fw-black);
+  color: white;
+  position: relative;
+  overflow: hidden;
+}
+
+.fw-cta-content {
+  position: relative;
+  z-index: 2;
+  max-width: 620px;
+}
+
+.fw-cta-eyebrow {
+  color: #ffae75;
+  font-size: 11px;
+  letter-spacing: 2px;
+  font-weight: 800;
+  margin-bottom: 20px;
+}
+
+.fw-cta-content h2 {
+  font-size: clamp(34px, 4vw, 53px);
+  line-height: 1.15;
+  letter-spacing: -1.5px;
+  font-weight: 800;
+  margin: 0 0 20px;
+}
+
+.fw-cta-content h2 span {
+  color: var(--fw-orange);
+}
+
+.fw-cta-content p {
+  font-size: 15px;
+  line-height: 1.8;
+  color: #c9c9c9;
+  max-width: 520px;
+  margin-bottom: 28px;
+}
+
+.fw-cta-button {
+  border: none;
+  background: var(--fw-orange);
+  color: white;
+  padding: 16px 23px;
+  border-radius: 11px;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 20px;
+  transition: 0.25s ease;
+}
+
+.fw-cta-button:hover {
+  background: white;
+  color: var(--fw-black);
+  transform: translateY(-3px);
+}
+
+.fw-cta-button span {
+  font-size: 20px;
+}
+
+.fw-cta-symbol {
+  position: absolute;
+  right: 9%;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 230px;
+  height: 230px;
+  border: 2px solid rgba(244, 119, 33, 0.4);
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: rgba(244, 119, 33, 0.35);
+  font-size: 160px;
+  font-weight: 900;
+}
+
+.fw-cta-decoration {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(244, 119, 33, 0.08);
+}
+
+.fw-cta-decoration-one {
+  height: 350px;
+  width: 350px;
+  right: 0;
+  top: -200px;
+}
+
+.fw-cta-decoration-two {
+  height: 280px;
+  width: 280px;
+  right: 150px;
+  bottom: -240px;
+}
+
+
+/* RESPONSIVE DESIGN */
+
+@media (max-width: 1050px) {
+
+  .fw-hero {
+    grid-template-columns: 1fr 0.9fr;
+    gap: 25px;
+  }
+
+  .fw-highlight-strip {
+    margin-left: 25px;
+    margin-right: 25px;
+    flex-wrap: wrap;
+  }
+
+  .fw-highlight-separator {
+    display: none;
+  }
+
+  .fw-benefits-section {
+    gap: 35px;
+  }
+
+  .fw-cta-section {
+    margin-left: 25px;
+    margin-right: 25px;
+  }
+
+}
+
+@media (max-width: 800px) {
+
+  .fw-hero {
+    grid-template-columns: 1fr;
+    padding-top: 70px;
+    gap: 35px;
+  }
+
+  .fw-hero-content {
+    max-width: 100%;
+  }
+
+  .fw-visual {
+    min-height: 500px;
+  }
+
+  .fw-process-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .fw-benefits-section {
+    grid-template-columns: 1fr;
+  }
+
+  .fw-benefits-intro {
+    max-width: 100%;
+  }
+
+  .fw-highlight-strip {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .fw-cta-symbol {
+    opacity: 0.2;
+    right: -50px;
+  }
+
+}
+
+@media (max-width: 520px) {
+
+  .fw-hero {
+    padding: 55px 22px;
+  }
+
+  .fw-hero h1 {
+    font-size: 43px;
+    letter-spacing: -1.8px;
+  }
+
+  .fw-hero-description {
+    font-size: 15px;
+  }
+
+  .fw-hero-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .fw-primary-button,
+  .fw-secondary-button {
+    width: 100%;
+  }
+
+  .fw-visual {
+    min-height: 420px;
+  }
+
+  .fw-visual::before {
+    width: 280px;
+    height: 280px;
+  }
+
+  .fw-orbit-one {
+    width: 330px;
+    height: 330px;
+  }
+
+  .fw-orbit-two {
+    width: 370px;
+    height: 370px;
+  }
+
+  .fw-match-card {
+    padding: 17px;
+  }
+
+  .fw-floating-top {
+    right: -3px;
+    top: 35px;
+  }
+
+  .fw-floating-bottom {
+    left: -3px;
+    bottom: 20px;
+  }
+
+  .fw-highlight-strip {
+    margin: 0 18px 65px;
+    padding: 20px;
+    gap: 22px;
+  }
+
+  .fw-highlight-item {
+    gap: 8px;
+  }
+
+  .fw-highlight-icon {
+    height: 37px;
+    width: 37px;
+    font-size: 16px;
+  }
+
+  .fw-highlight-item strong {
+    font-size: 11px;
+  }
+
+  .fw-highlight-item div span {
+    font-size: 9px;
+  }
+
+  .fw-process-section {
+    padding: 20px 20px 75px;
+  }
+
+  .fw-benefits-section {
+    padding: 65px 22px;
+  }
+
+  .fw-benefits-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .fw-cta-section {
+    margin: 65px 18px;
+    padding: 45px 25px;
+  }
+
+  .fw-cta-content h2 {
+    font-size: 36px;
+  }
+
+  .fw-cta-symbol {
+    display: none;
+  }
+}

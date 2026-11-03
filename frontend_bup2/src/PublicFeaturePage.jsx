@@ -1,5 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { api } from "./services/api";
+import FindWorkersPage from "./FindWorkersPage";
+
 
 const SKILLS = ["Painter", "Mason", "Plumber", "Electrician", "Carpenter", "Helper"];
 
@@ -99,14 +101,9 @@ export default function PublicFeaturePage({ page, onAuth, onSearchJobs }) {
     </section>
   );
 
-  if (page === "find-workers") return (
-    <section className="sp-page">
-      <div className="sp-page-heading"><span className="sp-eyebrow">FOR CONTRACTORS</span><h1>Find the right <em>workers.</em></h1><p>SkillPulse ranks eligible workers for each job using your existing matching engine.</p></div>
-      <div className="sp-info-panel"><div className="sp-icon">✦</div><div><h2>Job-specific worker recommendations</h2><p>Sign in as a contractor, open one of your posted jobs and choose its recommended workers. SkillPulse applies skill and availability requirements, location constraints and the configured ranking weights.</p><button className="sp-primary" onClick={() => onAuth("login")}>Contractor sign in</button></div></div>
-      <div className="sp-three-grid"><article><b>01</b><h3>Post a requirement</h3><p>Set the skill, work date, area, wage and number of workers.</p></article><article><b>02</b><h3>Review ranked matches</h3><p>See eligible candidates and their existing match explanations.</p></article><article><b>03</b><h3>Manage applications</h3><p>Use the contractor dashboard to select, reject or manage workers.</p></article></div>
-      <p className="sp-note">Worker profiles are not exposed in a public directory. Recommendations are available through authenticated contractor job workflows.</p>
-    </section>
-  );
+  if (page === "find-workers") {
+  return <FindWorkersPage onAuth={onAuth} />;
+}
 
   if (page === "how-it-works") return (
     <section className="sp-page">
